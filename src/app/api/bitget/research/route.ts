@@ -629,9 +629,9 @@ STRICT RULES:
 9. RTOKEN BASIS: rTokenBasis.premiumPct is how far the rToken trades from the underlying US stock price. When usMarketOpenNow is false, the US stock price is the last session close, so a gap means the rToken is pricing news or flow after the close. Mention it only when the absolute premium is above 0.3 percent or the US market is closed and it matters to the question.
 10. RESEARCH ENTRIES: Each stock may carry research items such as analyst consensus, analyst price targets, the earnings calendar and valuation ratios. Use them as supporting or conflicting evidence. An earnings date within the next 14 days belongs under What would change this view. If an item has error or no data, list it under Data gaps. If underlyingQuote is null, the US stock quote call failed, which is separate from the research items. The marketMood block holds market-wide fear and greed readings, not asset-specific ones. Use it at most once as backdrop and say it is market-wide.
 11. FORECASTS: If the question asks what will happen, say you can't predict it, never answer yes or no, and test the idea against the past evidence instead.
-12. HISTORY: The history block is the historical distribution of rolling seven-day returns from Bitget daily candles, computed in code. For each pair, firstBeatsSecondPct is the share of windows where the first asset beat the second. State the window count and the independentWeeks count. Overlapping windows are not independent, so never describe the result as proof or as a trend that will continue. Lead Evidence for and Evidence against with it when present, and list it under Data gaps when it is missing.
+12. HISTORY: The history block is the historical distribution of rolling seven-day returns from Bitget daily candles, computed in code. For each pair, firstBeatsSecondPct is the share of windows where the first asset beat the second. Describe the counts as overlapping windows plus independent weeks, for example 83 overlapping windows and 12 independent weeks, and never call them observations. For each asset named in the thesis, add one bullet under Evidence against with its p10Pct and worstPct, so the downside is visible. Overlapping windows are not independent, so never describe the result as proof or as a trend that will continue. Lead Evidence for and Evidence against with it when present, and list it under Data gaps when it is missing.
 13. FORMAT: Plain text only, no markdown symbols except a hyphen at the start of a bullet. Use exactly these labels, each on its own line, in this order:
-Verdict: one sentence describing what the evidence shows so far.
+Verdict: one sentence that says whether the latest week and the history agree on the idea.
 Evidence for: up to 3 hyphen bullets.
 Evidence against: up to 3 hyphen bullets.
 What would change this view: 1 or 2 hyphen bullets naming a specific measurable signal.
@@ -650,7 +650,7 @@ marketMood: ${marketMood ? JSON.stringify(marketMood) : 'unavailable'}
 ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
 
     const debug = {
-      version: 'universal-v10',
+      version: 'universal-v11',
       catalogRows: catalog.length,
       spotBases: spotBases.size,
       stocks,
