@@ -12,6 +12,9 @@ const CATALOG_TTL_MS = 10 * 60 * 1000;
 const EXTRA_TIMEOUT_MS = 5_000;
 const EXTRA_MAX_CHARS = 700;
 const EXTRA_STOCK_LIMIT = 3;
+const QUOTE_TIMEOUT_MS = 8_000;
+const SPOT_TIMEOUT_MS = 8_000;
+const MCP_CONCURRENCY = 3;
 
 /**
  * Extra Bitget MCP research entries fetched for each stock, beyond the quote.
@@ -20,7 +23,7 @@ const EXTRA_STOCK_LIMIT = 3;
  */
 const EXTRA_ENTRIES = (
   process.env.BITGET_EXTRA_ENTRIES ||
-  'equity_estimates_consensus,equity_estimates_price_target,equity_calendar,equity_fundamental_ratios'
+  'equity_estimates_consensus,equity_estimates_price_target,equity_calendar'
 )
   .split(',')
   .map((item) => item.trim())
@@ -58,6 +61,51 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       },
     );
   });
+}
+
+/**
+ * The Bitget MCP server slows down or times out when many calls arrive at once,
+ * so at most MCP_CONCURRENCY calls run together. A call that waits or runs longer
+ * than its time limit fails fast and frees its slot, so one slow call can't block the rest.
+ */
+let mcpActive = 0;
+const mcpWaiters: Array<{ run: () => void; cancelled: boolean; granted: boolean }> = [];
+
+function releaseMcpSlot() {
+  while (mcpWaiters.length) {
+    const waiter = mcpWaiters.shift()!;
+    if (!waiter.cancelled) {
+      waiter.granted = true;
+      waiter.run();
+      return;
+    }
+  }
+  mcpActive--;
+}
+
+async function mcp<T>(fn: () => Promise<T>, ms: number): Promise<T> {
+  const started = Date.now();
+  if (mcpActive < MCP_CONCURRENCY) {
+    mcpActive++;
+  } else {
+    const waiter = { run: () => {}, cancelled: false, granted: false };
+    const gate = new Promise<void>((resolve) => {
+      waiter.run = resolve;
+    });
+    mcpWaiters.push(waiter);
+    try {
+      await withTimeout(gate, ms);
+    } catch (error) {
+      if (waiter.granted) releaseMcpSlot();
+      else waiter.cancelled = true;
+      throw error;
+    }
+  }
+  try {
+    return await withTimeout(fn(), Math.max(1000, ms - (Date.now() - started)));
+  } finally {
+    releaseMcpSlot();
+  }
 }
 
 function parseMaybeJson(raw: unknown): unknown {
@@ -116,7 +164,10 @@ function usMarketOpenNow(now = new Date()): boolean {
 
 async function fetchExtra(entryId: string, ticker: string) {
   try {
-    const raw = await withTimeout(getEquityData(entryId, { symbol: ticker, ...(ENTRY_PARAMS[entryId] ?? {}) }), EXTRA_TIMEOUT_MS);
+    const raw = await mcp(
+      () => getEquityData(entryId, { symbol: ticker, ...(ENTRY_PARAMS[entryId] ?? {}) }),
+      EXTRA_TIMEOUT_MS,
+    );
     const summary = slimExtra(raw);
     return { entry: entryId, data: summary, error: summary ? null : 'Empty result' };
   } catch (err) {
@@ -138,7 +189,7 @@ let moodCache: {
 async function loadMarketMood() {
   if (moodCache && Date.now() - moodCache.at < MOOD_TTL_MS) return moodCache.data;
   const read = (entry: string, params: Record<string, unknown>) =>
-    withTimeout(getEquityData(entry, params), EXTRA_TIMEOUT_MS).then(
+    mcp(() => getEquityData(entry, params), EXTRA_TIMEOUT_MS).then(
       (raw) => slimExtra(raw),
       () => null,
     );
@@ -247,15 +298,19 @@ export async function POST(request: Request) {
       const spot = spotSymbolByTicker.get(ticker);
       const wantExtras = index < EXTRA_STOCK_LIMIT;
       const [quote, week, tk, extras] = await Promise.all([
-        getEquityData('equity_price_quote', { symbol: ticker }).then(
+        mcp(() => getEquityData('equity_price_quote', { symbol: ticker }), QUOTE_TIMEOUT_MS).then(
           (raw) => ({ data: parseMaybeJson(raw), error: null as string | null }),
           (err: unknown) => ({
             data: null,
             error: err instanceof Error ? err.message : String(err),
           }),
         ),
-        spot ? weeklyChange(spot) : Promise.resolve(null),
-        spot ? fetchSpotTicker(spot).catch(() => null) : Promise.resolve(null),
+        spot
+          ? withTimeout(weeklyChange(spot), SPOT_TIMEOUT_MS).catch(() => null)
+          : Promise.resolve(null),
+        spot
+          ? withTimeout(fetchSpotTicker(spot), SPOT_TIMEOUT_MS).catch(() => null)
+          : Promise.resolve(null),
         wantExtras
           ? Promise.all(EXTRA_ENTRIES.map((entry) => fetchExtra(entry, ticker)))
           : Promise.resolve([] as Array<{ entry: string; data: string | null; error: string | null }>),
@@ -288,7 +343,16 @@ export async function POST(request: Request) {
         error: quote.error,
       };
     });
-    const cryptoPromises = coins.map((base) => getCryptoEvidence(base));
+    const cryptoPromises = coins.map((base) =>
+      withTimeout(getCryptoEvidence(base), SPOT_TIMEOUT_MS * 2).catch((err: unknown) => ({
+        kind: 'crypto',
+        asset: base,
+        symbol: `${base}USDT`,
+        data: null,
+        week: null,
+        error: err instanceof Error ? err.message : String(err),
+      })),
+    );
     const [stockEvidence, cryptoEvidence, marketMood] = await Promise.all([
       Promise.all(stockPromises),
       Promise.all(cryptoPromises),
@@ -351,7 +415,7 @@ marketMood: ${marketMood ? JSON.stringify(marketMood) : 'unavailable'}
 ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
 
     const debug = {
-      version: 'universal-v7',
+      version: 'universal-v8',
       catalogRows: catalog.length,
       spotBases: spotBases.size,
       stocks,
