@@ -1,0 +1,95 @@
+/*
+ * Panel fixes: Host chat readability and the Observatorium on phones.
+ * Selectors start with "body" so they win over globals.css whatever the load order.
+ */
+
+/* Compact one-line provenance under each answer. */
+body .iroh-provenance {
+  margin: 9px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--scroll-muted, #7a6a52);
+  white-space: normal;
+}
+body .iroh-provenance strong {
+  margin-right: 4px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Section labels in Uncle's answers. */
+body .iroh-markdown .iroh-label {
+  color: var(--seal, #8a2f22);
+}
+body .iroh-markdown ul {
+  margin-top: 2px;
+}
+
+/* Observatorium: the board scrolls inside the paper instead of being cut off. */
+body .app-shell[data-station='TeaTable'] .mkt-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(107, 42, 33, 0.45) transparent;
+}
+
+@media (max-width: 760px) {
+  /* Host chat: a taller paper and a compact head, so most of an answer shows at once. */
+  body .app-shell[data-station='AvatarSeat'] .reading-panel:has(.iroh-chat) {
+    height: min(78dvh, 740px);
+    max-height: none;
+  }
+  body .app-shell:not([data-station='Shelf']) .iroh-chat-head {
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    padding: 10px 52px 8px 16px;
+  }
+  body .iroh-chat-head .eyebrow {
+    margin-bottom: 2px;
+    font-size: 9px;
+  }
+  body .app-shell[data-station='AvatarSeat'] .reading-panel .iroh-chat-head h1 {
+    margin: 0;
+    font-size: 22px;
+  }
+  body .app-shell:not([data-station='Shelf']) .iroh-chat-head p {
+    display: none;
+  }
+  body .iroh-chat-actions {
+    flex-direction: row;
+    justify-content: stretch;
+    width: 100%;
+    gap: 6px;
+  }
+  body .iroh-chat-actions button {
+    flex: 1 1 0;
+    min-height: 30px;
+    padding: 3px 6px;
+    font-size: 11px;
+  }
+  body .app-shell:not([data-station='Shelf']) .iroh-transcript {
+    padding: 12px 14px;
+  }
+  body .app-shell:not([data-station='Shelf']) .iroh-message {
+    margin-bottom: 10px;
+    padding: 10px 12px 11px;
+    font-size: 14px;
+  }
+  body .app-shell:not([data-station='Shelf']) .iroh-compose {
+    padding: 8px 14px 10px;
+  }
+
+  /* Observatorium: the shared panel was shifted half off screen by its centering transform. */
+  body .app-shell[data-station='TeaTable'] .reading-panel {
+    top: auto;
+    right: 12px;
+    bottom: 88px;
+    left: 12px;
+    width: auto;
+    height: auto;
+    max-height: calc(100dvh - 190px);
+    transform: none !important;
+  }
+}
