@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  nickname     String
+  nicknameKey  String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+  chats        Chat[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Chat {
+  id                   String    @id @default(uuid())
+  userId               String
+  title                String    @default("New chat")
+  nansenConversationId String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages             Message[]
+  @@index([userId, updatedAt])
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  chatId    String
+  role      String
+  content   String
+  status    String   @default("complete")
+  createdAt DateTime @default(now())
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  @@index([chatId, id])
+}
+
+model NansenSnapshot {
+  key          String   @id
+  payload      String
+  fetchedAt    DateTime
+  stale        Boolean  @default(false)
+  refreshError String?
+  updatedAt    DateTime @updatedAt
+}
+
+model BitgetAsset {
+  providerInstrumentId String   @id
+  symbol               String
+  companyName          String?
+  listingStatus        String?
+  weekendTradable      String?
+  lastVerifiedAt       DateTime?
+  underlyingTicker     String?
+  tradingPeriodJson    String?
+  firstSeenAt          DateTime?
+  sourceRequestTime    String?
+  
+  observations         BitgetSignalObservation[]
+  signalCoverage       BitgetSignalCoverage[]
+  theses               Thesis[]
+  @@index([symbol])
+}
+
+model BitgetSignalObservation {
+  cacheKey     String   @id
+  instrumentId String
+  signalType   String
+  payload      String
+  fetchedAt    DateTime
+  instrument   BitgetAsset @relation(fields: [instrumentId], references: [providerInstrumentId], onDelete: Cascade)
+  @@index([instrumentId, signalType])
+}
+
+model BitgetSignalCoverage {
+  instrumentId    String
+  signalType      String
+  status          String
+  lastAttemptedAt DateTime
+  lastSucceededAt DateTime?
+  source          String
+  errorCode       String?
+  errorMessage    String?
+  updatedAt       DateTime @updatedAt
+  instrument      BitgetAsset @relation(fields: [instrumentId], references: [providerInstrumentId], onDelete: Cascade)
+  @@id([instrumentId, signalType])
+  @@index([signalType, status])
+}
+
+model Thesis {
+  id           String   @id @default(cuid())
+  title        String
+  content      String?
+  instrumentId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  instrument   BitgetAsset? @relation(fields: [instrumentId], references: [providerInstrumentId], onDelete: SetNull)
+}
