@@ -2,7 +2,7 @@
 
 A 3D tea shop in your browser where you test stock theses against Bitget market data. Walk into the shop, open a thesis at the Counter, and ask Uncle, the shop's host, for the evidence.
 
-**Live site:** <https://irohteashop.vercel.app>
+**Live site:** <https://irohteashop-production.up.railway.app>
 
 ## What you can do
 
@@ -49,6 +49,19 @@ The figures come from Bitget daily candles, so the latest candle is today so far
 - It works on desktop and mobile.
 
 **Log in** at the top right is optional. You need only a nickname and a password. An account keeps your chats with Uncle.
+
+## Research walkthrough
+
+This is one full run from the Counter to an answer from Uncle. It takes a few minutes.
+
+1. **Enter the shop.** Open the live site and press **Enter Teashop** once the room has loaded.
+2. **Go to the Counter.** Use the dock at the bottom. Three theses sit there as scrolls, each with a momentum seal that shows how many of its four stocks rose over the last seven days.
+3. **Open a thesis.** Read the argument, then open one of its stocks to see eight days of Bitget candles and the live quote.
+4. **Ask Uncle.** Press **Ask Uncle about this thesis**. The question appears in the Host panel and waits for you to send it.
+5. **Read the answer and its provenance.** Uncle answers from fresh Bitget data pulled through the MCP server. Under the answer you see the symbol, the MCP source, and the time the data was fetched.
+6. **Check the evidence.** Open the Shelf to see how complete the data is for the instruments involved, or press **Trade on Bitget** to look at the market in a new tab. The shop never places orders.
+
+To start at a specific thesis, open `/?thesis=<id>` on the live site.
 
 ## How the data flows
 
