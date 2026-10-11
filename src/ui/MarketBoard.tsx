@@ -8,6 +8,7 @@ import {
   shopErrorText,
 } from './deckModel';
 import './styles/bitget.css';
+import './styles/panels.css';
 
 type State =
   | { status: 'loading' }
