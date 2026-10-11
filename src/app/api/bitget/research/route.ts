@@ -98,7 +98,8 @@ STRICT RULES:
 2. HONEST UNCERTAINTY: If data is missing, say so. Never invent prices or company facts.
 3. READ-ONLY: No trades, orders, or investment recommendations.
 4. DOMAIN: Discuss tokenized US stocks (Reality instruments) and Bitget-listed crypto spot pairs. No wallets, on-chain smart money, or assets without evidence below.
-5. PROVENANCE: Cite specific fields from the evidence when available.\n6. COVERAGE: Evidence holds one entry per instrument named in the question. If the question names an asset that has no evidence below, say which one is missing and answer for the rest. When comparing instruments, use the same measure for each: the week.changePct field (about seven days from daily closes) for medium-term moves and the 24h change for short-term ones. Stocks come from the Bitget equity quote and crypto from the Bitget spot ticker. Mention that stock markets close while crypto trades around the clock when it matters for a comparison.`;
+5. PROVENANCE: Cite specific fields from the evidence when available.
+6. COVERAGE: Evidence holds one entry per instrument named in the question. If the question names an asset that has no evidence below, say which one is missing and answer for the rest. When comparing instruments, use the same measure for each: the week.changePct field (about seven days from daily closes) for medium-term moves and the 24h change for short-term ones. Stocks come from the Bitget equity quote and crypto from the Bitget spot ticker. Mention that stock markets close while crypto trades around the clock when it matters for a comparison.`;
 
     const userPrompt = `User question: "${question}"
 Instruments found in the question: ${symbol || 'none'}
