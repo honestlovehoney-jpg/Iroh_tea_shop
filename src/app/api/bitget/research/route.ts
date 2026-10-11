@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/auth/db';
 import { callMcpTool, getEquityData } from '@/services/bitget/mcp-client';
-import { fetchSpotTicker } from '@/services/bitget/client';
+import { fetchSpotCandles, fetchSpotTicker } from '@/services/bitget/client';
+import { normalizeCandleRows } from '@/services/bitget/candle-normalizer';
 import { findCryptoMentions, findMentions } from '@/services/bitget/mentions';
 import { getCryptoEvidence, loadSpotBases, weeklyChange } from '@/services/bitget/crypto';
 
@@ -12,7 +13,10 @@ const CATALOG_TTL_MS = 10 * 60 * 1000;
 const EXTRA_TIMEOUT_MS = 5_000;
 const EXTRA_MAX_CHARS = 700;
 const EXTRA_STOCK_LIMIT = 3;
-const QUOTE_TIMEOUT_MS = 8_000;
+const QUOTE_TIMEOUT_MS = 4_500;
+const QUOTE_HEDGE_MS = 1_800;
+const HISTORY_DAYS = 90;
+const HISTORY_TTL_MS = 10 * 60 * 1000;
 const SPOT_TIMEOUT_MS = 8_000;
 const CORE_CONCURRENCY = 2;
 const EXTRAS_CONCURRENCY = 3;
@@ -120,6 +124,126 @@ function makeLimiter(limit: number) {
 
 const mcpCore = makeLimiter(CORE_CONCURRENCY);
 const mcpExtras = makeLimiter(EXTRAS_CONCURRENCY);
+
+/**
+ * Intermittently a single MCP call hangs while the same call succeeds right after. If the first
+ * attempt is not back after hedgeMs, or fails, a second identical attempt starts. First success wins.
+ */
+function withHedge<T>(call: () => Promise<T>, hedgeMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    let launched = 0;
+    let failures = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const launch = () => {
+      if (settled || launched >= 2) return;
+      launched++;
+      call().then(
+        (value) => {
+          if (settled) return;
+          settled = true;
+          if (timer) clearTimeout(timer);
+          resolve(value);
+        },
+        (error) => {
+          failures++;
+          if (settled) return;
+          if (launched < 2) {
+            launch();
+            return;
+          }
+          if (failures >= launched) {
+            settled = true;
+            if (timer) clearTimeout(timer);
+            reject(error);
+          }
+        },
+      );
+    };
+    launch();
+    timer = setTimeout(launch, hedgeMs);
+  });
+}
+
+const historyCache = new Map<string, { at: number; closes: Map<string, number> }>();
+
+/** Daily closes keyed by UTC date, from Bitget spot candles (works for rTokens and coins). */
+async function loadCloses(spotSymbol: string): Promise<Map<string, number> | null> {
+  const hit = historyCache.get(spotSymbol);
+  if (hit && Date.now() - hit.at < HISTORY_TTL_MS) return hit.closes;
+  try {
+    const { rows } = await withTimeout(
+      fetchSpotCandles({ symbol: spotSymbol, granularity: '1day', limit: HISTORY_DAYS }),
+      SPOT_TIMEOUT_MS,
+    );
+    const closes = new Map<string, number>();
+    for (const candle of normalizeCandleRows(rows)) closes.set(candle.timestamp.slice(0, 10), candle.close);
+    if (closes.size < 10) return null;
+    historyCache.set(spotSymbol, { at: Date.now(), closes });
+    return closes;
+  } catch {
+    return null;
+  }
+}
+
+function dayBefore(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Percent change over every rolling seven-day window, keyed by the window's end date. */
+function rollingWeek(closes: Map<string, number>): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [date, close] of closes) {
+    const prior = closes.get(dayBefore(date, 7));
+    if (prior) out.set(date, (close / prior - 1) * 100);
+  }
+  return out;
+}
+
+function quantile(sorted: number[], q: number): number | null {
+  if (!sorted.length) return null;
+  const pos = (sorted.length - 1) * q;
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+}
+
+const r2 = (value: number | null) => (value === null ? null : Math.round(value * 100) / 100);
+
+function assetHistory(weekly: Map<string, number>) {
+  const values = [...weekly.values()].sort((a, b) => a - b);
+  if (values.length < 8) return null;
+  return {
+    windows: values.length,
+    medianPct: r2(quantile(values, 0.5)),
+    p10Pct: r2(quantile(values, 0.1)),
+    p90Pct: r2(quantile(values, 0.9)),
+    worstPct: r2(values[0]),
+  };
+}
+
+function pairHistory(a: Map<string, number>, b: Map<string, number>) {
+  const spreads: Array<{ end: string; spread: number }> = [];
+  for (const [end, pa] of a) {
+    const pb = b.get(end);
+    if (pb !== undefined) spreads.push({ end, spread: pa - pb });
+  }
+  if (spreads.length < 8) return null;
+  spreads.sort((x, y) => x.end.localeCompare(y.end));
+  const values = spreads.map((item) => item.spread);
+  const sorted = [...values].sort((x, y) => x - y);
+  const independent: number[] = [];
+  for (let i = spreads.length - 1; i >= 0; i -= 7) independent.push(spreads[i].spread);
+  return {
+    windows: values.length,
+    firstBeatsSecondPct: Math.round((values.filter((v) => v > 0).length / values.length) * 100),
+    medianSpreadPts: r2(quantile(sorted, 0.5)),
+    worstSpreadPts: r2(sorted[0]),
+    bestSpreadPts: r2(sorted[sorted.length - 1]),
+    independentWeeks: independent.length,
+    firstBeatsSecondInIndependentWeeks: independent.filter((v) => v > 0).length,
+  };
+}
 
 function parseMaybeJson(raw: unknown): unknown {
   if (typeof raw !== 'string') return raw;
@@ -340,7 +464,10 @@ export async function POST(request: Request) {
       const spot = spotSymbolByTicker.get(ticker);
       const wantExtras = index < EXTRA_STOCK_LIMIT;
       const [quote, week, tk, extras] = await Promise.all([
-        mcpCore(() => getEquityData('equity_price_quote', { symbol: ticker }), QUOTE_TIMEOUT_MS).then(
+        withHedge(
+          () => mcpCore(() => getEquityData('equity_price_quote', { symbol: ticker }), QUOTE_TIMEOUT_MS),
+          QUOTE_HEDGE_MS,
+        ).then(
           (raw) => ({ data: parseMaybeJson(raw), error: null as string | null }),
           (err: unknown) => ({
             data: null,
@@ -395,10 +522,20 @@ export async function POST(request: Request) {
         error: err instanceof Error ? err.message : String(err),
       })),
     );
-    const [stockEvidence, cryptoEvidence, marketMood] = await Promise.all([
+    const historyTargets = [
+      ...stocks.map((name) => ({ name, symbol: spotSymbolByTicker.get(name) })),
+      ...coins.map((name) => ({ name, symbol: `${name}USDT` as string | undefined })),
+    ].filter((target): target is { name: string; symbol: string } => Boolean(target.symbol));
+    const [stockEvidence, cryptoEvidence, marketMood, histories] = await Promise.all([
       Promise.all(stockPromises),
       Promise.all(cryptoPromises),
       stocks.length || coins.length ? loadMarketMood() : Promise.resolve(null),
+      Promise.all(
+        historyTargets.map(async (target) => ({
+          name: target.name,
+          closes: await loadCloses(target.symbol),
+        })),
+      ),
     ]);
     timings.evidenceMs = Date.now() - tEvidence;
 
@@ -440,6 +577,28 @@ export async function POST(request: Request) {
       }
     }
 
+    // Historical distribution from up to 90 daily candles, computed here and not by the model.
+    const weeklyByName = new Map<string, Map<string, number>>();
+    for (const item of histories) if (item.closes) weeklyByName.set(item.name, rollingWeek(item.closes));
+    const historyAssets: Record<string, unknown> = {};
+    for (const [name, weekly] of weeklyByName) historyAssets[name] = assetHistory(weekly);
+    const historyPairs: Array<Record<string, unknown>> = [];
+    const historyNames = [...weeklyByName.keys()];
+    for (let i = 0; i < historyNames.length; i++) {
+      for (let j = i + 1; j < historyNames.length && historyPairs.length < 12; j++) {
+        const stats = pairHistory(weeklyByName.get(historyNames[i])!, weeklyByName.get(historyNames[j])!);
+        if (stats) historyPairs.push({ pair: `${historyNames[i]} vs ${historyNames[j]}`, ...stats });
+      }
+    }
+    const history = weeklyByName.size
+      ? {
+          lookbackDays: HISTORY_DAYS,
+          note: 'Rolling seven-day windows overlap, so independent weeks are about one seventh of the window count.',
+          assets: historyAssets,
+          pairs: historyPairs,
+        }
+      : null;
+
     // Which Bitget sources actually returned data for this question.
     const sources = new Set<string>();
     for (const item of stockEvidence) {
@@ -452,6 +611,7 @@ export async function POST(request: Request) {
       if (item.data) sources.add('rest:spot_ticker');
       if (item.week) sources.add('rest:spot_candles_1day');
     }
+    if (history) sources.add('rest:spot_candles_90d');
     if (marketMood?.usMarketFearGreed) sources.add('mcp:sentiment_market_fear_greed');
     if (marketMood?.cryptoFearGreed) sources.add('mcp:crypto_sentiment_crypto_fear_greed');
     const sourceList = [...sources];
@@ -467,15 +627,16 @@ STRICT RULES:
 7. COMPARISONS: The comparisons block holds precomputed gaps between instruments in percentage points. Quote spreadPts and leader from it. Never subtract, rank or judge which number is higher yourself. A less negative change beats a more negative one, so -1.5 percent leads -2.5 percent.
 8. SAME MEASURE: Stocks here are Bitget rTokens that trade 24/7 like crypto, so never say their market is closed. Compare assets with computed.change24hPct for the 24h move and week.changePct for the seven-day move. spotTicker is the tradable Bitget price. underlyingQuote is the US stock quote and follows US market hours.
 9. RTOKEN BASIS: rTokenBasis.premiumPct is how far the rToken trades from the underlying US stock price. When usMarketOpenNow is false, the US stock price is the last session close, so a gap means the rToken is pricing news or flow after the close. Mention it only when the absolute premium is above 0.3 percent or the US market is closed and it matters to the question.
-10. RESEARCH ENTRIES: Each stock may carry research items such as analyst consensus, analyst price targets, the earnings calendar and valuation ratios. Use them as supporting or conflicting evidence. An earnings date within the next 14 days belongs under What would change this view. If an item has error or no data, list it under Data gaps. The marketMood block holds market-wide fear and greed readings, not asset-specific ones. Use it at most once as backdrop and say it is market-wide.
+10. RESEARCH ENTRIES: Each stock may carry research items such as analyst consensus, analyst price targets, the earnings calendar and valuation ratios. Use them as supporting or conflicting evidence. An earnings date within the next 14 days belongs under What would change this view. If an item has error or no data, list it under Data gaps. If underlyingQuote is null, the US stock quote call failed, which is separate from the research items. The marketMood block holds market-wide fear and greed readings, not asset-specific ones. Use it at most once as backdrop and say it is market-wide.
 11. FORECASTS: If the question asks what will happen, say you can't predict it, never answer yes or no, and test the idea against the past evidence instead.
-12. FORMAT: Plain text only, no markdown symbols except a hyphen at the start of a bullet. Use exactly these labels, each on its own line, in this order:
+12. HISTORY: The history block is the historical distribution of rolling seven-day returns from Bitget daily candles, computed in code. For each pair, firstBeatsSecondPct is the share of windows where the first asset beat the second. State the window count and the independentWeeks count. Overlapping windows are not independent, so never describe the result as proof or as a trend that will continue. Lead Evidence for and Evidence against with it when present, and list it under Data gaps when it is missing.
+13. FORMAT: Plain text only, no markdown symbols except a hyphen at the start of a bullet. Use exactly these labels, each on its own line, in this order:
 Verdict: one sentence describing what the evidence shows so far.
 Evidence for: up to 3 hyphen bullets.
 Evidence against: up to 3 hyphen bullets.
 What would change this view: 1 or 2 hyphen bullets naming a specific measurable signal.
 Data gaps: one line, or "None" if nothing is missing.
-13. LENGTH: Under 220 words in total.`;
+14. LENGTH: Under 240 words in total.`;
 
     const userPrompt = `User question: "${question}"
 Instruments found in the question: ${symbol || 'none'}
@@ -484,11 +645,12 @@ Time now (UTC): ${new Date().toISOString()}
 Bitget evidence:
 ${mcpEvidence ? JSON.stringify(mcpEvidence) : 'No Bitget data available.'}
 comparisons: ${JSON.stringify(comparisons)}
+history: ${history ? JSON.stringify(history) : 'unavailable'}
 marketMood: ${marketMood ? JSON.stringify(marketMood) : 'unavailable'}
 ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
 
     const debug = {
-      version: 'universal-v9',
+      version: 'universal-v10',
       catalogRows: catalog.length,
       spotBases: spotBases.size,
       stocks,
@@ -537,7 +699,7 @@ ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,
-        max_tokens: 700,
+        max_tokens: 800,
         enable_thinking: false,
       }),
       signal: AbortSignal.timeout(40_000),
@@ -564,6 +726,7 @@ ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
       provenance,
       marketMood,
       comparisons,
+      history,
       rawEvidence: mcpEvidence,
     });
   } catch (error) {
