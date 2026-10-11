@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/auth/db';
 import { getEquityData } from '@/services/bitget/mcp-client';
+import { fetchSpotTicker } from '@/services/bitget/client';
 import { findCryptoMentions, findMentions } from '@/services/bitget/mentions';
 import { getCryptoEvidence, loadSpotBases, weeklyChange } from '@/services/bitget/crypto';
 
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
     const coins = cryptoBases.slice(0, 3);
     const symbol = [...stocks, ...coins].join(', ') || undefined;
     const debug = {
-      version: 'universal-v2',
+      version: 'universal-v3',
       catalogRows: catalog.length,
       sampleTickers: catalog.slice(0, 5).map((row) => row.underlyingTicker),
       spotBases: spotBases.size,
@@ -63,11 +64,14 @@ export async function POST(request: Request) {
     const stockEvidence = await Promise.all(
       stocks.map(async (ticker) => {
         const spot = spotSymbolByTicker.get(ticker);
-        const [quote, week] = await Promise.all([
+        const [quote, week, tk] = await Promise.all([
           getEquityData('equity_price_quote', { symbol: ticker }).then(
             (raw) => {
               try {
-                return { data: typeof raw === 'string' ? JSON.parse(raw) : raw, error: null as string | null };
+                return {
+                  data: typeof raw === 'string' ? JSON.parse(raw) : raw,
+                  error: null as string | null,
+                };
               } catch {
                 return { data: raw, error: null as string | null };
               }
@@ -78,8 +82,22 @@ export async function POST(request: Request) {
             }),
           ),
           spot ? weeklyChange(spot) : Promise.resolve(null),
+          spot ? fetchSpotTicker(spot).catch(() => null) : Promise.resolve(null),
         ]);
-        return { kind: 'stock', symbol: ticker, data: quote.data, week, error: quote.error };
+        const last = Number(tk?.lastPr);
+        const open = Number(tk?.open);
+        return {
+          kind: 'stock',
+          symbol: ticker,
+          spotSymbol: spot ?? null,
+          spotTicker: tk,
+          computed: {
+            change24hPct: Number.isFinite(last) && open ? (last / open - 1) * 100 : null,
+          },
+          underlyingQuote: quote.data,
+          week,
+          error: quote.error,
+        };
       }),
     );
     const cryptoEvidence = await Promise.all(coins.map((base) => getCryptoEvidence(base)));
@@ -99,7 +117,8 @@ STRICT RULES:
 3. READ-ONLY: No trades, orders, or investment recommendations.
 4. DOMAIN: Discuss tokenized US stocks (Reality instruments) and Bitget-listed crypto spot pairs. No wallets, on-chain smart money, or assets without evidence below.
 5. PROVENANCE: Cite specific fields from the evidence when available.
-6. COVERAGE: Evidence holds one entry per instrument named in the question. If the question names an asset that has no evidence below, say which one is missing and answer for the rest. When comparing instruments, use the same measure for each: the week.changePct field (about seven days from daily closes) for medium-term moves and the 24h change for short-term ones. Stocks come from the Bitget equity quote and crypto from the Bitget spot ticker. Mention that stock markets close while crypto trades around the clock when it matters for a comparison.`;
+6. COVERAGE: Evidence holds one entry per instrument named in the question. If the question names an asset that has no evidence below, say which one is missing and answer for the rest. Stocks here are Bitget rTokens that trade 24/7 like crypto, so never say their market is closed. For both stocks and crypto, use computed.change24hPct for the 24h move and week.changePct for the seven-day move, so every comparison uses the same measure. For stocks, spotTicker is the tradable Bitget price and underlyingQuote is the US stock quote, which follows US market hours and is reference only.
+7. FORECASTS: If the question asks what will happen, say you can't predict it, compare the past window only, and never answer yes or no.`;
 
     const userPrompt = `User question: "${question}"
 Instruments found in the question: ${symbol || 'none'}
