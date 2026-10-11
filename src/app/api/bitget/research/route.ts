@@ -14,7 +14,14 @@ const EXTRA_MAX_CHARS = 700;
 const EXTRA_STOCK_LIMIT = 3;
 const QUOTE_TIMEOUT_MS = 8_000;
 const SPOT_TIMEOUT_MS = 8_000;
-const MCP_CONCURRENCY = 3;
+const CORE_CONCURRENCY = 2;
+const EXTRAS_CONCURRENCY = 3;
+const EXTRAS_SOFT_MS = 5_000;
+const EXTRA_CACHE_TTL_MS = 15 * 60 * 1000;
+/** Slow entries get a longer own limit. They never hold up the answer, see EXTRAS_SOFT_MS. */
+const ENTRY_TIMEOUT_MS: Record<string, number> = {
+  equity_estimates_price_target: 12_000,
+};
 
 /**
  * Extra Bitget MCP research entries fetched for each stock, beyond the quote.
@@ -64,49 +71,55 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 /**
- * The Bitget MCP server slows down or times out when many calls arrive at once,
- * so at most MCP_CONCURRENCY calls run together. A call that waits or runs longer
- * than its time limit fails fast and frees its slot, so one slow call can't block the rest.
+ * The Bitget MCP server slows down or times out when many calls arrive at once, so each lane
+ * runs a limited number of calls together. Quote calls use their own lane, so slow research
+ * entries can never starve them. A call that waits or runs past its limit fails fast and
+ * frees its slot.
  */
-let mcpActive = 0;
-const mcpWaiters: Array<{ run: () => void; cancelled: boolean; granted: boolean }> = [];
+function makeLimiter(limit: number) {
+  let active = 0;
+  const waiters: Array<{ run: () => void; cancelled: boolean; granted: boolean }> = [];
 
-function releaseMcpSlot() {
-  while (mcpWaiters.length) {
-    const waiter = mcpWaiters.shift()!;
-    if (!waiter.cancelled) {
-      waiter.granted = true;
-      waiter.run();
-      return;
+  function release() {
+    while (waiters.length) {
+      const waiter = waiters.shift()!;
+      if (!waiter.cancelled) {
+        waiter.granted = true;
+        waiter.run();
+        return;
+      }
     }
+    active--;
   }
-  mcpActive--;
-}
 
-async function mcp<T>(fn: () => Promise<T>, ms: number): Promise<T> {
-  const started = Date.now();
-  if (mcpActive < MCP_CONCURRENCY) {
-    mcpActive++;
-  } else {
-    const waiter = { run: () => {}, cancelled: false, granted: false };
-    const gate = new Promise<void>((resolve) => {
-      waiter.run = resolve;
-    });
-    mcpWaiters.push(waiter);
+  return async function run<T>(fn: () => Promise<T>, ms: number): Promise<T> {
+    const started = Date.now();
+    if (active < limit) {
+      active++;
+    } else {
+      const waiter = { run: () => {}, cancelled: false, granted: false };
+      const gate = new Promise<void>((resolve) => {
+        waiter.run = resolve;
+      });
+      waiters.push(waiter);
+      try {
+        await withTimeout(gate, ms);
+      } catch (error) {
+        if (waiter.granted) release();
+        else waiter.cancelled = true;
+        throw error;
+      }
+    }
     try {
-      await withTimeout(gate, ms);
-    } catch (error) {
-      if (waiter.granted) releaseMcpSlot();
-      else waiter.cancelled = true;
-      throw error;
+      return await withTimeout(fn(), Math.max(1000, ms - (Date.now() - started)));
+    } finally {
+      release();
     }
-  }
-  try {
-    return await withTimeout(fn(), Math.max(1000, ms - (Date.now() - started)));
-  } finally {
-    releaseMcpSlot();
-  }
+  };
 }
+
+const mcpCore = makeLimiter(CORE_CONCURRENCY);
+const mcpExtras = makeLimiter(EXTRAS_CONCURRENCY);
 
 function parseMaybeJson(raw: unknown): unknown {
   if (typeof raw !== 'string') return raw;
@@ -162,13 +175,25 @@ function usMarketOpenNow(now = new Date()): boolean {
   return minutes >= 9 * 60 + 30 && minutes < 16 * 60;
 }
 
-async function fetchExtra(entryId: string, ticker: string) {
+type ExtraResult = { entry: string; data: string | null; error: string | null };
+const extraCache = new Map<string, { at: number; data: string }>();
+
+async function fetchExtra(entryId: string, ticker: string): Promise<ExtraResult> {
+  const key = `${entryId}:${ticker}`;
+  const hit = extraCache.get(key);
+  if (hit && Date.now() - hit.at < EXTRA_CACHE_TTL_MS) {
+    return { entry: entryId, data: hit.data, error: null };
+  }
   try {
-    const raw = await mcp(
+    const raw = await mcpExtras(
       () => getEquityData(entryId, { symbol: ticker, ...(ENTRY_PARAMS[entryId] ?? {}) }),
-      EXTRA_TIMEOUT_MS,
+      ENTRY_TIMEOUT_MS[entryId] ?? EXTRA_TIMEOUT_MS,
     );
     const summary = slimExtra(raw);
+    if (summary) {
+      if (extraCache.size > 400) extraCache.clear();
+      extraCache.set(key, { at: Date.now(), data: summary });
+    }
     return { entry: entryId, data: summary, error: summary ? null : 'Empty result' };
   } catch (err) {
     return {
@@ -177,6 +202,23 @@ async function fetchExtra(entryId: string, ticker: string) {
       error: err instanceof Error ? err.message.slice(0, 160) : String(err),
     };
   }
+}
+
+/**
+ * Wait for research entries only up to EXTRAS_SOFT_MS. A slow entry keeps running and fills
+ * the cache, so the next question about the same stock gets it instantly.
+ */
+async function softExtras(ticker: string): Promise<ExtraResult[]> {
+  const late = new Promise<'late'>((resolve) => setTimeout(() => resolve('late'), EXTRAS_SOFT_MS));
+  return Promise.all(
+    EXTRA_ENTRIES.map(async (entry) => {
+      const result = await Promise.race([fetchExtra(entry, ticker), late]);
+      if (result === 'late') {
+        return { entry, data: null, error: 'Still loading, cached for the next question' };
+      }
+      return result;
+    }),
+  );
 }
 
 const MOOD_TTL_MS = 5 * 60 * 1000;
@@ -189,7 +231,7 @@ let moodCache: {
 async function loadMarketMood() {
   if (moodCache && Date.now() - moodCache.at < MOOD_TTL_MS) return moodCache.data;
   const read = (entry: string, params: Record<string, unknown>) =>
-    mcp(() => getEquityData(entry, params), EXTRA_TIMEOUT_MS).then(
+    mcpExtras(() => getEquityData(entry, params), EXTRA_TIMEOUT_MS).then(
       (raw) => slimExtra(raw),
       () => null,
     );
@@ -298,7 +340,7 @@ export async function POST(request: Request) {
       const spot = spotSymbolByTicker.get(ticker);
       const wantExtras = index < EXTRA_STOCK_LIMIT;
       const [quote, week, tk, extras] = await Promise.all([
-        mcp(() => getEquityData('equity_price_quote', { symbol: ticker }), QUOTE_TIMEOUT_MS).then(
+        mcpCore(() => getEquityData('equity_price_quote', { symbol: ticker }), QUOTE_TIMEOUT_MS).then(
           (raw) => ({ data: parseMaybeJson(raw), error: null as string | null }),
           (err: unknown) => ({
             data: null,
@@ -312,8 +354,8 @@ export async function POST(request: Request) {
           ? withTimeout(fetchSpotTicker(spot), SPOT_TIMEOUT_MS).catch(() => null)
           : Promise.resolve(null),
         wantExtras
-          ? Promise.all(EXTRA_ENTRIES.map((entry) => fetchExtra(entry, ticker)))
-          : Promise.resolve([] as Array<{ entry: string; data: string | null; error: string | null }>),
+          ? softExtras(ticker)
+          : Promise.resolve([] as ExtraResult[]),
       ]);
       const last = num(tk?.lastPr);
       const open = num(tk?.open);
@@ -369,6 +411,35 @@ export async function POST(request: Request) {
           .join('; ')
       : null;
 
+    // Precomputed gaps, so the model never does the arithmetic or the ranking itself.
+    type Pctable = { week?: { changePct?: number } | null; computed?: { change24hPct?: number | null } };
+    const round2 = (value: number) => Math.round(value * 100) / 100;
+    const named = [
+      ...stockEvidence.map((item) => ({ name: item.symbol, item: item as Pctable })),
+      ...cryptoEvidence.map((item) => ({ name: item.asset, item: item as unknown as Pctable })),
+    ];
+    const gap = (aName: string, a: number | null | undefined, bName: string, b: number | null | undefined) =>
+      typeof a === 'number' && typeof b === 'number'
+        ? {
+            [aName]: round2(a),
+            [bName]: round2(b),
+            spreadPts: round2(a - b),
+            leader: a === b ? 'tie' : a > b ? aName : bName,
+          }
+        : null;
+    const comparisons: Array<Record<string, unknown>> = [];
+    for (let i = 0; i < named.length; i++) {
+      for (let j = i + 1; j < named.length && comparisons.length < 12; j++) {
+        const a = named[i];
+        const b = named[j];
+        comparisons.push({
+          pair: `${a.name} vs ${b.name}`,
+          week7d: gap(a.name, a.item.week?.changePct, b.name, b.item.week?.changePct),
+          change24h: gap(a.name, a.item.computed?.change24hPct, b.name, b.item.computed?.change24hPct),
+        });
+      }
+    }
+
     // Which Bitget sources actually returned data for this question.
     const sources = new Set<string>();
     for (const item of stockEvidence) {
@@ -393,17 +464,18 @@ STRICT RULES:
 4. DOMAIN: Discuss tokenized US stocks (Bitget rTokens) and Bitget-listed crypto spot pairs. No wallets, on-chain smart money, or assets without evidence below.
 5. PROVENANCE: Name the field or research entry you rely on, for example week.changePct or equity_estimates_consensus.
 6. COVERAGE: Evidence holds one entry per instrument named in the question. If the question names an asset with no evidence, say which one is missing and answer for the rest.
-7. SAME MEASURE: Stocks here are Bitget rTokens that trade 24/7 like crypto, so never say their market is closed. Compare assets with computed.change24hPct for the 24h move and week.changePct for the seven-day move. spotTicker is the tradable Bitget price. underlyingQuote is the US stock quote and follows US market hours.
-8. RTOKEN BASIS: rTokenBasis.premiumPct is how far the rToken trades from the underlying US stock price. When usMarketOpenNow is false, the US stock price is the last session close, so a gap means the rToken is pricing news or flow after the close. Mention it only when the absolute premium is above 0.3 percent or the US market is closed and it matters to the question.
-9. RESEARCH ENTRIES: Each stock may carry research items such as analyst consensus, analyst price targets, the earnings calendar and valuation ratios. Use them as supporting or conflicting evidence. An earnings date within the next 14 days belongs under What would change this view. If an item has error or no data, list it under Data gaps. The marketMood block holds market-wide fear and greed readings, not asset-specific ones. Use it at most once as backdrop and say it is market-wide.
-10. FORECASTS: If the question asks what will happen, say you can't predict it, never answer yes or no, and test the idea against the past evidence instead.
-11. FORMAT: Plain text only, no markdown symbols except a hyphen at the start of a bullet. Use exactly these labels, each on its own line, in this order:
+7. COMPARISONS: The comparisons block holds precomputed gaps between instruments in percentage points. Quote spreadPts and leader from it. Never subtract, rank or judge which number is higher yourself. A less negative change beats a more negative one, so -1.5 percent leads -2.5 percent.
+8. SAME MEASURE: Stocks here are Bitget rTokens that trade 24/7 like crypto, so never say their market is closed. Compare assets with computed.change24hPct for the 24h move and week.changePct for the seven-day move. spotTicker is the tradable Bitget price. underlyingQuote is the US stock quote and follows US market hours.
+9. RTOKEN BASIS: rTokenBasis.premiumPct is how far the rToken trades from the underlying US stock price. When usMarketOpenNow is false, the US stock price is the last session close, so a gap means the rToken is pricing news or flow after the close. Mention it only when the absolute premium is above 0.3 percent or the US market is closed and it matters to the question.
+10. RESEARCH ENTRIES: Each stock may carry research items such as analyst consensus, analyst price targets, the earnings calendar and valuation ratios. Use them as supporting or conflicting evidence. An earnings date within the next 14 days belongs under What would change this view. If an item has error or no data, list it under Data gaps. The marketMood block holds market-wide fear and greed readings, not asset-specific ones. Use it at most once as backdrop and say it is market-wide.
+11. FORECASTS: If the question asks what will happen, say you can't predict it, never answer yes or no, and test the idea against the past evidence instead.
+12. FORMAT: Plain text only, no markdown symbols except a hyphen at the start of a bullet. Use exactly these labels, each on its own line, in this order:
 Verdict: one sentence describing what the evidence shows so far.
 Evidence for: up to 3 hyphen bullets.
 Evidence against: up to 3 hyphen bullets.
 What would change this view: 1 or 2 hyphen bullets naming a specific measurable signal.
 Data gaps: one line, or "None" if nothing is missing.
-12. LENGTH: Under 220 words in total.`;
+13. LENGTH: Under 220 words in total.`;
 
     const userPrompt = `User question: "${question}"
 Instruments found in the question: ${symbol || 'none'}
@@ -411,11 +483,12 @@ Time now (UTC): ${new Date().toISOString()}
 
 Bitget evidence:
 ${mcpEvidence ? JSON.stringify(mcpEvidence) : 'No Bitget data available.'}
+comparisons: ${JSON.stringify(comparisons)}
 marketMood: ${marketMood ? JSON.stringify(marketMood) : 'unavailable'}
 ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
 
     const debug = {
-      version: 'universal-v8',
+      version: 'universal-v9',
       catalogRows: catalog.length,
       spotBases: spotBases.size,
       stocks,
@@ -490,6 +563,7 @@ ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
       debug,
       provenance,
       marketMood,
+      comparisons,
       rawEvidence: mcpEvidence,
     });
   } catch (error) {
