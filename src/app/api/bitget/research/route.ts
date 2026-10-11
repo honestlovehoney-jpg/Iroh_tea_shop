@@ -9,19 +9,28 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const CATALOG_TTL_MS = 10 * 60 * 1000;
-const EXTRA_TIMEOUT_MS = 7_000;
-const EXTRA_MAX_CHARS = 1200;
+const EXTRA_TIMEOUT_MS = 5_000;
+const EXTRA_MAX_CHARS = 700;
 const EXTRA_STOCK_LIMIT = 3;
 
 /**
  * Extra Bitget MCP research entries fetched for each stock, beyond the quote.
  * Override on Railway with BITGET_EXTRA_ENTRIES (comma separated entry ids),
- * for example: equity_estimates_consensus,equity_profile
+ * for example: equity_estimates_consensus,equity_calendar
  */
-const EXTRA_ENTRIES = (process.env.BITGET_EXTRA_ENTRIES || 'equity_estimates_consensus,equity_profile')
+const EXTRA_ENTRIES = (
+  process.env.BITGET_EXTRA_ENTRIES ||
+  'equity_estimates_consensus,equity_estimates_price_target,equity_calendar,equity_fundamental_ratios'
+)
   .split(',')
   .map((item) => item.trim())
   .filter(Boolean);
+
+/** Extra query parameters per entry, beyond symbol. Keeps results short. */
+const ENTRY_PARAMS: Record<string, Record<string, unknown>> = {
+  equity_estimates_price_target: { limit: 3 },
+  equity_fundamental_ratios: { limit: 1 },
+};
 
 type CatalogRow = { underlyingTicker: string | null; companyName: string | null; symbol: string };
 let catalogCache: { at: number; rows: CatalogRow[] } | null = null;
@@ -107,7 +116,7 @@ function usMarketOpenNow(now = new Date()): boolean {
 
 async function fetchExtra(entryId: string, ticker: string) {
   try {
-    const raw = await withTimeout(getEquityData(entryId, { symbol: ticker }), EXTRA_TIMEOUT_MS);
+    const raw = await withTimeout(getEquityData(entryId, { symbol: ticker, ...(ENTRY_PARAMS[entryId] ?? {}) }), EXTRA_TIMEOUT_MS);
     const summary = slimExtra(raw);
     return { entry: entryId, data: summary, error: summary ? null : 'Empty result' };
   } catch (err) {
@@ -322,7 +331,7 @@ STRICT RULES:
 6. COVERAGE: Evidence holds one entry per instrument named in the question. If the question names an asset with no evidence, say which one is missing and answer for the rest.
 7. SAME MEASURE: Stocks here are Bitget rTokens that trade 24/7 like crypto, so never say their market is closed. Compare assets with computed.change24hPct for the 24h move and week.changePct for the seven-day move. spotTicker is the tradable Bitget price. underlyingQuote is the US stock quote and follows US market hours.
 8. RTOKEN BASIS: rTokenBasis.premiumPct is how far the rToken trades from the underlying US stock price. When usMarketOpenNow is false, the US stock price is the last session close, so a gap means the rToken is pricing news or flow after the close. Mention it only when the absolute premium is above 0.3 percent or the US market is closed and it matters to the question.
-9. RESEARCH ENTRIES: Each stock may carry research items such as analyst consensus or company profile. Use them as supporting or conflicting evidence. If an item has error or no data, list it under Data gaps. The marketMood block holds market-wide fear and greed readings, not asset-specific ones. Use it at most once as backdrop and say it is market-wide.
+9. RESEARCH ENTRIES: Each stock may carry research items such as analyst consensus, analyst price targets, the earnings calendar and valuation ratios. Use them as supporting or conflicting evidence. An earnings date within the next 14 days belongs under What would change this view. If an item has error or no data, list it under Data gaps. The marketMood block holds market-wide fear and greed readings, not asset-specific ones. Use it at most once as backdrop and say it is market-wide.
 10. FORECASTS: If the question asks what will happen, say you can't predict it, never answer yes or no, and test the idea against the past evidence instead.
 11. FORMAT: Plain text only, no markdown symbols except a hyphen at the start of a bullet. Use exactly these labels, each on its own line, in this order:
 Verdict: one sentence describing what the evidence shows so far.
@@ -342,7 +351,7 @@ marketMood: ${marketMood ? JSON.stringify(marketMood) : 'unavailable'}
 ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
 
     const debug = {
-      version: 'universal-v6',
+      version: 'universal-v7',
       catalogRows: catalog.length,
       spotBases: spotBases.size,
       stocks,
