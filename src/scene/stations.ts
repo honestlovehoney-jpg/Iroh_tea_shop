@@ -1,6 +1,6 @@
 import type { Station } from '../shared/contracts';
 export const OBSERVATORIUM_URL =
-  'https://chains-planetary-system.up.railway.app';
+  'https://planetary-stock-production.up.railway.app';
 
 export type Point = [number, number, number];
 /** Close camera pose for the planetary model before handing visitors to its live view. */
