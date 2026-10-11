@@ -119,6 +119,29 @@ async function fetchExtra(entryId: string, ticker: string) {
   }
 }
 
+const MOOD_TTL_MS = 5 * 60 * 1000;
+let moodCache: {
+  at: number;
+  data: { usMarketFearGreed: string | null; cryptoFearGreed: string | null };
+} | null = null;
+
+/** Market-wide fear and greed readings from free Bitget MCP sentiment entries. */
+async function loadMarketMood() {
+  if (moodCache && Date.now() - moodCache.at < MOOD_TTL_MS) return moodCache.data;
+  const read = (entry: string, params: Record<string, unknown>) =>
+    withTimeout(getEquityData(entry, params), EXTRA_TIMEOUT_MS).then(
+      (raw) => slimExtra(raw),
+      () => null,
+    );
+  const [usMarketFearGreed, cryptoFearGreed] = await Promise.all([
+    read('sentiment_market_fear_greed', {}),
+    read('crypto_sentiment_crypto_fear_greed', { limit: 1 }),
+  ]);
+  const data = { usMarketFearGreed, cryptoFearGreed };
+  if (usMarketFearGreed || cryptoFearGreed) moodCache = { at: Date.now(), data };
+  return data;
+}
+
 /**
  * Host research: Bitget MCP evidence → Qwen explanation.
  * Secrets stay server-side. Read-only.
@@ -132,6 +155,7 @@ export async function POST(request: Request) {
       symbol?: string;
       instrumentId?: string;
       discover?: boolean;
+      probeLabels?: number[];
     };
 
     // Protected helper: list what the Bitget MCP guide says about news and sentiment entries.
@@ -147,12 +171,32 @@ export async function POST(request: Request) {
           return { args, error: err instanceof Error ? err.message : String(err) };
         }
       };
+      const probeLabels = (Array.isArray(body.probeLabels) ? body.probeLabels : [])
+        .map(Number)
+        .filter((n) => Number.isInteger(n))
+        .slice(0, 10);
+      const probe = async (label: number) => {
+        try {
+          const raw = await withTimeout(
+            getEquityData('news_label_search', { label, page: 1, page_size: 3 }),
+            10_000,
+          );
+          const text = JSON.stringify(parseMaybeJson(raw));
+          return { label, result: text.length > 1500 ? `${text.slice(0, 1500)}...` : text };
+        } catch (err) {
+          return { label, error: err instanceof Error ? err.message : String(err) };
+        }
+      };
       const out = await Promise.all([
         attempt({}),
         attempt({ category: 'news' }),
         attempt({ category: 'sentiment' }),
+        attempt({ category: 'equity' }),
+        attempt({ entry_id: 'news_label_search' }),
+        attempt({ id: 'news_label_search' }),
       ]);
-      return NextResponse.json({ discover: out });
+      const probes = await Promise.all(probeLabels.map(probe));
+      return NextResponse.json({ discover: out, probes });
     }
 
     const question = body.question?.trim();
@@ -236,9 +280,10 @@ export async function POST(request: Request) {
       };
     });
     const cryptoPromises = coins.map((base) => getCryptoEvidence(base));
-    const [stockEvidence, cryptoEvidence] = await Promise.all([
+    const [stockEvidence, cryptoEvidence, marketMood] = await Promise.all([
       Promise.all(stockPromises),
       Promise.all(cryptoPromises),
+      stocks.length || coins.length ? loadMarketMood() : Promise.resolve(null),
     ]);
     timings.evidenceMs = Date.now() - tEvidence;
 
@@ -263,6 +308,8 @@ export async function POST(request: Request) {
       if (item.data) sources.add('rest:spot_ticker');
       if (item.week) sources.add('rest:spot_candles_1day');
     }
+    if (marketMood?.usMarketFearGreed) sources.add('mcp:sentiment_market_fear_greed');
+    if (marketMood?.cryptoFearGreed) sources.add('mcp:crypto_sentiment_crypto_fear_greed');
     const sourceList = [...sources];
 
     const systemPrompt = `You are Uncle, a market research assistant for a Bitget Reality Thesis Desk. You help a human trader stress test an idea. You never decide for them.
@@ -275,7 +322,7 @@ STRICT RULES:
 6. COVERAGE: Evidence holds one entry per instrument named in the question. If the question names an asset with no evidence, say which one is missing and answer for the rest.
 7. SAME MEASURE: Stocks here are Bitget rTokens that trade 24/7 like crypto, so never say their market is closed. Compare assets with computed.change24hPct for the 24h move and week.changePct for the seven-day move. spotTicker is the tradable Bitget price. underlyingQuote is the US stock quote and follows US market hours.
 8. RTOKEN BASIS: rTokenBasis.premiumPct is how far the rToken trades from the underlying US stock price. When usMarketOpenNow is false, the US stock price is the last session close, so a gap means the rToken is pricing news or flow after the close. Mention it only when the absolute premium is above 0.3 percent or the US market is closed and it matters to the question.
-9. RESEARCH ENTRIES: Each stock may carry research items such as analyst consensus or company profile. Use them as supporting or conflicting evidence. If an item has error or no data, list it under Data gaps.
+9. RESEARCH ENTRIES: Each stock may carry research items such as analyst consensus or company profile. Use them as supporting or conflicting evidence. If an item has error or no data, list it under Data gaps. The marketMood block holds market-wide fear and greed readings, not asset-specific ones. Use it at most once as backdrop and say it is market-wide.
 10. FORECASTS: If the question asks what will happen, say you can't predict it, never answer yes or no, and test the idea against the past evidence instead.
 11. FORMAT: Plain text only, no markdown symbols except a hyphen at the start of a bullet. Use exactly these labels, each on its own line, in this order:
 Verdict: one sentence describing what the evidence shows so far.
@@ -291,10 +338,11 @@ Time now (UTC): ${new Date().toISOString()}
 
 Bitget evidence:
 ${mcpEvidence ? JSON.stringify(mcpEvidence) : 'No Bitget data available.'}
+marketMood: ${marketMood ? JSON.stringify(marketMood) : 'unavailable'}
 ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
 
     const debug = {
-      version: 'universal-v5',
+      version: 'universal-v6',
       catalogRows: catalog.length,
       spotBases: spotBases.size,
       stocks,
@@ -368,6 +416,7 @@ ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
       answer,
       debug,
       provenance,
+      marketMood,
       rawEvidence: mcpEvidence,
     });
   } catch (error) {
