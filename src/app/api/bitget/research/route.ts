@@ -50,6 +50,15 @@ export async function POST(request: Request) {
     const stocks = stockTargets.slice(0, 4);
     const coins = cryptoBases.slice(0, 3);
     const symbol = [...stocks, ...coins].join(', ') || undefined;
+    const debug = {
+      version: 'universal-v2',
+      catalogRows: catalog.length,
+      sampleTickers: catalog.slice(0, 5).map((row) => row.underlyingTicker),
+      spotBases: spotBases.size,
+      stocks,
+      coins,
+    };
+    console.log('[Research API] matched', JSON.stringify(debug));
 
     const stockEvidence = await Promise.all(
       stocks.map(async (ticker) => {
@@ -114,6 +123,7 @@ ${mcpError ? `MCP error: ${mcpError}` : ''}`;
             mcpError,
           },
           rawEvidence: mcpEvidence,
+          debug,
         },
         { status: 503 },
       );
@@ -150,6 +160,7 @@ ${mcpError ? `MCP error: ${mcpError}` : ''}`;
     return NextResponse.json({
       question,
       answer,
+      debug,
       provenance: {
         symbol: symbol || null,
         instrumentId: body.instrumentId || null,
