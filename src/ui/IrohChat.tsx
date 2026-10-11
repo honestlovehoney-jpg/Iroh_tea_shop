@@ -11,6 +11,7 @@ import { MAX_QUESTION_LENGTH } from '../chat/limits';
 import type { ResearchAvailability } from '../chat/availability';
 import type { PublicUser } from '../auth/service';
 import { IrohMessage } from './IrohMessage';
+import './styles/panels.css';
 
 type ChatSummary = { id: string; title: string; updatedAt: string };
 type SavedMessage = Pick<ChatMessage, 'role' | 'content' | 'status'> & {
@@ -34,7 +35,7 @@ export function IrohChat({
     session.getSnapshot,
   );
   const [draft, setDraft] = useState('');
-  const [researchSymbol, setResearchSymbol] = useState('');
+  const [researchSymbol] = useState('');
   const [history, setHistory] = useState<ChatSummary[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -46,6 +47,8 @@ export function IrohChat({
   const loadGeneration = useRef(0);
   const input = useRef<HTMLTextAreaElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
+  const transcript = useRef<HTMLDivElement>(null);
+  const lastAnswer = useRef<HTMLElement>(null);
   // Sending disables the composer, and the browser drops its focus to <body>.
   const refocusAfterAnswer = useRef(false);
 
@@ -164,6 +167,15 @@ export function IrohChat({
     field.setSelectionRange(end, end);
   }, [draftPrefill?.key]);
   useEffect(() => {
+    const last = chat.messages.at(-1);
+    const box = transcript.current;
+    const answer = lastAnswer.current;
+    // A finished answer opens at its first line, so the reader starts at the verdict.
+    if (last?.role === 'assistant' && last.content && box && answer) {
+      box.scrollTop +=
+        answer.getBoundingClientRect().top - box.getBoundingClientRect().top - 8;
+      return;
+    }
     bottom.current?.scrollIntoView({ block: 'end' });
   }, [chat.messages.at(-1)?.content, chat.error]);
   useEffect(() => {
@@ -312,6 +324,7 @@ export function IrohChat({
         )}
         <div
           className="iroh-transcript"
+          ref={transcript}
           role="log"
           aria-label="Uncle conversation"
           aria-live="polite"
@@ -356,21 +369,37 @@ export function IrohChat({
               <article
                 className={`iroh-message is-${message.role}`}
                 key={message.id}
+                ref={
+                  message.role === 'assistant' &&
+                  message.id === chat.messages.at(-1)?.id
+                    ? lastAnswer
+                    : undefined
+                }
               >
                 <div className="iroh-speaker">
                   {message.role === 'user' ? 'You' : 'Uncle'}
                 </div>
                 {message.content && (
                   <>
-                    {message.role === 'assistant' && message.provenance ? (
-                      <div className="iroh-provenance" role="note">
-                        <strong>Provenance</strong>
-                        {message.provenance.symbol ? <div>Symbol: {message.provenance.symbol}</div> : null}
-                        {message.provenance.mcpSource ? <div>Source: {message.provenance.mcpSource}</div> : null}
-                        {message.provenance.timestamp ? <div>Fetched: {new Date(message.provenance.timestamp).toLocaleString()}</div> : null}
-                      </div>
-                    ) : null}
                     <IrohMessage content={message.content} />
+                    {message.role === 'assistant' && message.provenance ? (
+                      <p className="iroh-provenance" role="note">
+                        <strong>Provenance</strong>{' '}
+                        {[
+                          message.provenance.symbol
+                            ? `Symbol ${message.provenance.symbol}`
+                            : null,
+                          message.provenance.mcpSource
+                            ? `Source ${message.provenance.mcpSource}`
+                            : null,
+                          message.provenance.timestamp
+                            ? `Fetched ${new Date(message.provenance.timestamp).toLocaleTimeString()}`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    ) : null}
                   </>
                 )}
                 {message.status === 'stopped' && (
@@ -413,18 +442,6 @@ export function IrohChat({
           </button>
         </p>
       )}
-      <label className="iroh-symbol-row">
-        <span className="sr-only">Stock ticker for research context</span>
-        <input
-          type="text"
-          value={researchSymbol}
-          onChange={(e) => setResearchSymbol(e.target.value.toUpperCase())}
-          placeholder="Optional focus ticker. Uncle also reads stocks and coins in your question."
-          maxLength={12}
-          disabled={chat.isStreaming}
-          aria-label="Stock ticker"
-        />
-      </label>
       <form
         className="iroh-compose"
         onSubmit={(event) => {
