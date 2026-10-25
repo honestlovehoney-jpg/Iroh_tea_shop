@@ -1,5 +1,6 @@
 import TeaRoomShell from '../ui/TeaRoomShell';
 import { getCurrentUser } from '../auth/current-user';
+import { getResearchAvailability } from '../chat/availability';
 
 /**
  * Entry: full 3D Bitget Thesis Desk (not a flat dashboard).
@@ -7,5 +8,9 @@ import { getCurrentUser } from '../auth/current-user';
  */
 export default async function Page() {
   const user = await getCurrentUser();
-  return <TeaRoomShell key={user?.id ?? 'guest'} user={user} />;
+  return <TeaRoomShell
+      key={user?.id ?? 'guest'}
+      user={user}
+      research={getResearchAvailability()}
+    />;
 }

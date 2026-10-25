@@ -16,6 +16,7 @@ import { OBSERVATORIUM_URL, RECENTER_EVENT, STATIONS } from '../scene/stations';
 import { AccountMenu } from './AccountMenu';
 import type { PublicUser } from '../auth/service';
 import { IrohSession } from '../chat/session';
+import type { ResearchAvailability } from '../chat/availability';
 import { StationDock } from './StationDock';
 import type { ConvictionLevel, ThesisId } from '../thesis/types';
 import { convictionToMood } from './convictionMood';
@@ -88,8 +89,11 @@ function idlePreload(load: () => Promise<unknown>) {
 
 export default function TeaRoomShell({
   user,
+  research = 'configured',
 }: {
   user: PublicUser | null;
+  /** Whether the server has the Qwen key, read on the server per request. */
+  research?: ResearchAvailability;
 }) {
   const [irohSession] = useState(() => new IrohSession());
   const [irohActivity, setIrohActivity] = useState<IrohActivity>('idle');
@@ -388,8 +392,9 @@ export default function TeaRoomShell({
     deepLinkOpenOnce.current = true;
   }, [station, navigate, openPanel]);
   const onTalkToUncle = useCallback(
-    (text: string) => {
+    (text: string, thesisId?: ThesisId | null) => {
       returnThesis.current = selectedThesis;
+      irohSession.setThesis(thesisId ?? null);
       // Urgent, not a transition: a pending one could land after the guest
       // closes the desk. The panel's Suspense still mounts it once, with the chat.
       setUncleDraft({ text, key: Date.now() });
@@ -398,7 +403,7 @@ export default function TeaRoomShell({
       setStation('AvatarSeat');
       setPanelOpen(true);
     },
-    [selectedThesis],
+    [selectedThesis, irohSession],
   );
   const active = STATIONS.find((s) => s.id === station)!;
   const isEntrance = station === 'Entrance';
@@ -680,7 +685,7 @@ export default function TeaRoomShell({
                 <IrohChat
                   session={irohSession}
                   user={user}
-                  research="bitget"
+                  research={research}
                   draft={uncleDraft}
                 />
               )}

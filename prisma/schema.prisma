@@ -105,11 +105,144 @@ model BitgetSignalCoverage {
 }
 
 model Thesis {
+  id              String        @id @default(cuid())
+  title           String
+  content         String?
+  instrumentId    String?
+  /// Who owns this thesis: "u:<userId>" for a signed-in user, "g:<guestId>" for a guest cookie.
+  ownerKey        String?
+  /// Underlying ticker the user picked, for example AAPL.
+  symbol          String?
+  /// draft -> failures_resolved -> evidence_reviewed -> sealed -> locked. Only the server moves it.
+  status          String        @default("draft")
+  statusChangedAt DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  instrument      BitgetAsset?  @relation(fields: [instrumentId], references: [providerInstrumentId], onDelete: SetNull)
+  failurePaths    FailurePath[]
+  claims          Claim[]
+  seal            Seal?
+  lock            Lock?
+  @@index([ownerKey, createdAt])
+}
+
+/// One premortem failure path: a time-bound, falsifiable way the thesis could be wrong.
+model FailurePath {
+  id             String    @id @default(cuid())
+  thesisId       String
+  ordinal        Int
+  /// "uncle" (generated) or "user" (written by the person).
+  source         String    @default("uncle")
+  condition      String
+  /// Chance this path happens before the deadline, 0 to 1 exclusive.
+  probability    Float
+  /// Estimated loss as a percent of the portfolio if the path happens.
+  impactPct      Float
+  deadline       DateTime
+  /// price_below, price_above, date, or manual.
+  triggerKind    String
+  triggerLevel   Float?
+  triggerNote    String
+  /// pending, accepted, modified, or rejected.
+  decision       String    @default("pending")
+  decisionReason String?
+  /// What Uncle first wrote, kept when the person modifies the path.
+  originalJson   String?
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  thesis         Thesis    @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  @@index([thesisId, ordinal])
+}
+
+/// One factual claim on the Evidence Shelf, bound to the source it came from.
+model Claim {
   id           String   @id @default(cuid())
-  title        String
-  content      String?
-  instrumentId String?
+  thesisId     String
+  /// last_price, change_window, weekend_tradable for system claims; "user" for ones you added.
+  key          String
+  /// "system" (built from Bitget data) or "user" (a source you supplied).
+  origin       String   @default("system")
+  label        String
+  /// Null when the evidence is insufficient: the value is withheld, not guessed.
+  valueText    String?
+  /// observed (green), inferred (amber) or insufficient (red).
+  state        String
+  /// bitget_market, sec_filing, company_release or central_bank.
+  sourceKind   String
+  sourceLabel  String
+  sourceUrl    String?
+  observedAt   DateTime?
+  fetchedAt    DateTime
+  /// True when the reference market was closed at observedAt or fetchedAt.
+  marketClosed Boolean  @default(false)
+  note         String?
+  /// Set when the app fetched the primary-source page and found the stated figure on it.
+  verifiedAt   DateTime?
+  /// A short stretch of the page around the figure, as it appeared.
+  excerpt      String?
+  acknowledged Boolean  @default(false)
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  instrument   BitgetAsset? @relation(fields: [instrumentId], references: [providerInstrumentId], onDelete: SetNull)
+  thesis       Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  @@index([thesisId])
+}
+
+/// The Probability Seal: a direction, a horizon and two probabilities, fixed at one moment.
+model Seal {
+  id                String    @id @default(cuid())
+  thesisId          String    @unique
+  /// up or down: whether the Bitget daily close on the resolving day is above or below the reference price.
+  direction         String
+  horizonDays       Int
+  /// Your probability that the direction is right, 0 to 1 exclusive.
+  userProbability   Float
+  /// Uncle's probability for the same statement, produced without seeing yours.
+  systemProbability Float
+  /// uncle (the model) or base_rate (the share of past windows, when the model was unavailable).
+  systemMethod      String
+  systemRationale   String?
+  /// Share of past windows of the same length where the price moved this way, when enough history exists.
+  baseRate          Float?
+  instrumentId      String
+  referencePrice    Float
+  sealedAt          DateTime
+  /// The end of the UTC day the horizon falls on. The Bitget daily close of that day decides it.
+  resolvesAt        DateTime
+  /// open, resolved or unresolvable (Bitget no longer returns the resolving candle).
+  status            String    @default("open")
+  outcome           Boolean?
+  resolvedPrice     Float?
+  resolvedAt        DateTime?
+  userBrier         Float?
+  systemBrier       Float?
+  thesis            Thesis    @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  @@index([status, resolvesAt])
+}
+
+/// The portfolio you typed in for the Balance Scale. One per owner. Nothing here is read from an exchange.
+model Portfolio {
+  id             String   @id @default(cuid())
+  ownerKey       String   @unique
+  totalUsd       Float
+  collateralUsd  Float?
+  marginUsedUsd  Float?
+  /// JSON list of { symbol, valueUsd }.
+  holdingsJson   String   @default("[]")
+  updatedAt      DateTime @updatedAt
+}
+
+/// The Balance Scale result when a thesis is served: what was measured, what you acknowledged, and any override.
+model Lock {
+  id              String   @id @default(cuid())
+  thesisId        String   @unique
+  plannedUsd      Float
+  leverage        Float
+  /// clear, warn (you acknowledged soft limits) or override (you went past a hard limit).
+  verdict         String
+  /// JSON copy of the metrics at the moment of locking.
+  metricsJson     String
+  acknowledgedKeys String
+  overrideReason  String?
+  lockedAt        DateTime
+  thesis          Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
 }

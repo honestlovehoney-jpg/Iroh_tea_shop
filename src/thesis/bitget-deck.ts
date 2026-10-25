@@ -3,6 +3,7 @@ import { db } from '@/auth/db';
 import { getCandles } from '@/services/bitget/candles';
 import { getEquityData } from '@/services/bitget/mcp-client';
 import { computeConviction } from './conviction';
+import { buildSourceRef } from './source-ref';
 import { THESES, findThesis, findTicker } from './deck';
 import { MAJORS, marketMetrics, summarizeMarket } from './market';
 import {
@@ -84,6 +85,14 @@ async function loadSignal(ticker: Ticker): Promise<TickerSignal> {
       changePct,
       lastClose: rows[rows.length - 1].close,
       instrumentId,
+      ref: buildSourceRef({
+        label: 'Bitget daily candles',
+        instrumentId,
+        observedAt: rows[rows.length - 1].timestamp,
+        windowStart: rows[0].timestamp,
+        candles: rows.length,
+        fetchedAt: new Date(),
+      }),
     };
   } catch {
     return { ...base, status: 'error' };
@@ -207,14 +216,36 @@ export async function loadTickerDetail(
     loadCandles(instrumentId),
     loadQuote(ticker.symbol),
   ]);
+  const fetchedAt = new Date();
+  const candleRows = candles.status === 'ok' ? candles.data.rows : [];
   return {
     thesisId: thesis.id,
     symbol: ticker.symbol,
     instrumentId,
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: fetchedAt.toISOString(),
     stale: false,
     candles,
     quote,
+    candlesRef: candleRows.length
+      ? buildSourceRef({
+          label: 'Bitget daily candles',
+          instrumentId,
+          observedAt: candleRows[candleRows.length - 1].date,
+          windowStart: candleRows[0].date,
+          candles: candleRows.length,
+          fetchedAt,
+        })
+      : null,
+    // The MCP quote carries no timestamp here, so only the fetch time is known.
+    quoteRef:
+      quote.status === 'ok'
+        ? buildSourceRef({
+            label: 'Bitget MCP equity quote',
+            instrumentId: ticker.symbol,
+            observedAt: null,
+            fetchedAt,
+          })
+        : null,
   };
 }
 
@@ -243,7 +274,22 @@ async function loadMarketRow(major: {
     const metrics = marketMetrics(closes);
     if (metrics.dayChangePct === null && metrics.weekChangePct === null)
       return { ...base, instrumentId };
-    return { ...base, ...metrics, closes, instrumentId, status: 'ok' };
+    const sorted = sortCandles(result.value ?? []);
+    return {
+      ...base,
+      ...metrics,
+      closes,
+      instrumentId,
+      status: 'ok',
+      ref: buildSourceRef({
+        label: 'Bitget daily candles',
+        instrumentId,
+        observedAt: sorted[sorted.length - 1]?.timestamp ?? null,
+        windowStart: sorted[0]?.timestamp ?? null,
+        candles: sorted.length,
+        fetchedAt: new Date(),
+      }),
+    };
   } catch {
     return { ...base, status: 'error' };
   }
@@ -259,6 +305,21 @@ async function buildMarketBoard(): Promise<MarketBoard> {
   return {
     rows,
     summary: summarizeMarket(rows),
+    ref: (() => {
+      const refs = rows.flatMap((row) => (row.ref ? [row.ref] : []));
+      if (refs.length === 0) return null;
+      const newest = refs.reduce((a, b) =>
+        Date.parse(b.observedAt ?? '') > Date.parse(a.observedAt ?? '') ? b : a,
+      );
+      return buildSourceRef({
+        label: `Bitget daily candles for ${refs.length} listed stocks`,
+        instrumentId: null,
+        observedAt: newest.observedAt,
+        windowStart: null,
+        candles: null,
+        fetchedAt: new Date(now),
+      });
+    })(),
     fetchedAt: new Date(now).toISOString(),
     expiresAt: new Date(now + SNAPSHOT_TTL_MS).toISOString(),
     source: 'bitget',

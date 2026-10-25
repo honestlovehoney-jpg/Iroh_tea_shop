@@ -7,6 +7,14 @@ export type MessageProvenance = {
   mcpEntryId?: string | null;
   timestamp?: string | null;
   mcpError?: string | null;
+  /** Result of checking the answer's figures against the Bitget evidence. */
+  sourceLock?: {
+    checked: number;
+    verified: number;
+    withheld: number;
+    refused: boolean;
+    usMarketClosed: boolean;
+  } | null;
 };
 
 export type ChatMessage = {
@@ -88,7 +96,15 @@ export class IrohSession {
     this.emit();
   }
 
+  private thesisId: string | null = null;
+
+  /** The thesis the trader opened Uncle from, or null for a free question. */
+  setThesis(id: string | null) {
+    this.thesisId = id;
+  }
+
   reset() {
+    this.thesisId = null;
     this.abortController?.abort();
     this.abortController = null;
     this.requestGen += 1;
@@ -182,6 +198,15 @@ export class IrohSession {
           question,
           symbol: effectiveSymbol || undefined,
           instrumentId: effectiveInstrumentId || undefined,
+          thesisId: this.thesisId || undefined,
+          priorMessages: this.snapshot.messages
+            .filter(
+              (m) =>
+                m.role === 'user' ||
+                (m.role === 'assistant' && m.status === 'complete'),
+            )
+            .slice(-9)
+            .map(({ role, content }) => ({ role, content })),
         }),
         signal: this.abortController.signal,
       });

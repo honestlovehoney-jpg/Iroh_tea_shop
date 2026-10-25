@@ -26,6 +26,10 @@ Three theses sit on the counter as scrolls, each covering four stocks. Each scro
 - **Trade on Bitget** opens bitget.com in a new tab. Nothing in the shop places orders.
 - A link such as `/?thesis=<id>` skips the waiting room and opens that thesis.
 
+### Failure Table: premortem before any thesis moves on
+
+On the Counter, **Failure Table** (or **Put on trial** inside a scroll) starts your own thesis. Uncle drafts 3 to 5 time-bound failure paths, each with a measurable condition, a probability, an impact on the portfolio and something to watch. You Accept, Modify, or Reject each one. The thesis cannot leave draft until every path is decided. Kept paths that approach their trigger come back to the top of the panel. Rules and routes: [docs/failure-table.md](docs/failure-table.md).
+
 ### Host: ask Uncle
 
 Uncle is the old tea master who runs the shop. Each message pulls fresh Bitget data through the MCP server, and Qwen writes the answer. Every answer shows its provenance: the symbol, the MCP source, and the time the data was fetched. The desk is read-only. It never places orders.
@@ -102,6 +106,7 @@ You need Node.js and npm. Use Node.js 24.10.0, the version in `.nvmrc`.
    | `QWEN_MODEL`    | Name of the Qwen model to use.                       |
    | `DATABASE_URL`  | Database connection string.                          |
    | `BITGET_CATALOG_SYNC_TOKEN` | Secret that allows the catalog sync (step 5). |
+   | `SOURCE_FETCH_USER_AGENT` | Who you are to sec.gov, for example `YourApp you@example.com`. Without it SEC claims stay amber. |
 
    Keep these server-side. Never put them in a `NEXT_PUBLIC_` variable, because Next.js sends those to the browser.
 

@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { flushSync } from 'react-dom';
 import { THESES } from '../thesis/deck';
+import { rippleRoomUrl } from '../thesis/ripple-link';
 import type {
   ConvictionLevel,
   DeckSnapshot,
@@ -37,6 +38,9 @@ import {
 } from './deckModel';
 import { useMotionBudget } from './motionBudget';
 import { ThesisLeaf } from './ThesisLeaf';
+import { FailureTable, type TrialSeed } from './FailureTable';
+import { SourcedNumber } from './SourcedNumber';
+import { combineRefs } from '../thesis/source-ref';
 import './styles/deck.css';
 
 export interface ThesisDeckProps {
@@ -46,7 +50,7 @@ export interface ThesisDeckProps {
   selectedThesis?: ThesisId | null;
   onOpenThesis: (id: ThesisId, conviction: ConvictionLevel | null) => void;
   onCloseThesis: () => void;
-  onTalkToUncle: (draft: string) => void;
+  onTalkToUncle: (draft: string, thesisId?: ThesisId | null) => void;
 }
 
 /** The 360w and 600w cuts sit next to the full 900w thesis picture. */
@@ -112,6 +116,8 @@ export function ThesisDeck({
   const [deck, setDeck] = useState<DeckState>({ status: 'loading' });
   const [readingId, setReadingId] = useState<ThesisId | null>(selectedThesis);
   const [now, setNow] = useState(() => Date.now());
+  const [trial, setTrial] = useState(false);
+  const [trialSeed, setTrialSeed] = useState<TrialSeed | null>(null);
   const books = useRef<Partial<Record<ThesisId, HTMLButtonElement | null>>>({});
   const shelf = useRef<HTMLUListElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
@@ -212,6 +218,8 @@ export function ThesisDeck({
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (document.querySelector('dialog[open]')) return;
+      // An open source card takes its own Escape first.
+      if (document.querySelector('[data-srcnum-open="true"]')) return;
       // An open account menu takes its own Escape.
       if ((event.target as Element).closest?.('.account-menu[open]')) return;
       // Capture phase: Escape returns to the deck and keeps the panel open.
@@ -232,6 +240,22 @@ export function ThesisDeck({
 
   const reading = THESES.find((t) => t.id === readingId) ?? null;
 
+  if (trial)
+    return (
+      <div
+        className="thesis-deck"
+        data-layout="trial"
+        data-reduced={reduced ? 'true' : 'false'}
+        data-budget={budget}
+      >
+        <FailureTable
+          seed={trialSeed}
+          onSeedUsed={() => setTrialSeed(null)}
+          onBack={() => setTrial(false)}
+        />
+      </div>
+    );
+
   return (
     <div
       className="thesis-deck"
@@ -251,16 +275,28 @@ export function ThesisDeck({
             onRetry={() => setAttempt((a) => a + 1)}
           />
         </div>
-        <button
-          type="button"
-          className="deck-discuss"
-          onClick={() => onTalkToUncle(OWN_THESIS_DRAFT)}
-        >
-          <span className="deck-discuss-seal" aria-hidden="true">
-            茶
-          </span>
-          Ask Uncle about your own thesis
-        </button>
+        <div className="deck-head-actions">
+          <button
+            type="button"
+            className="deck-discuss"
+            onClick={() => setTrial(true)}
+          >
+            <span className="deck-discuss-seal" aria-hidden="true">
+              敗
+            </span>
+            Failure Table
+          </button>
+          <button
+            type="button"
+            className="deck-discuss"
+            onClick={() => onTalkToUncle(OWN_THESIS_DRAFT, null)}
+          >
+            <span className="deck-discuss-seal" aria-hidden="true">
+              茶
+            </span>
+            Ask Uncle about your own thesis
+          </button>
+        </div>
       </header>
 
       <div className="deck-stage">
@@ -302,6 +338,17 @@ export function ThesisDeck({
           now={now}
           titleRef={title}
           onTalkToUncle={onTalkToUncle}
+          onPutOnTrial={(thesis) => {
+            setTrialSeed({
+              title: thesis.title,
+              content: thesis.body,
+              symbols: thesis.tickers.map((t) => ({
+                symbol: t.symbol,
+                name: t.name,
+              })),
+            });
+            setTrial(true);
+          }}
         />
       )}
     </div>
@@ -576,7 +623,19 @@ function Meter({
         <p className="meter-level">
           {convictionTitle(conviction.level)}
           <span className="meter-flow">
-            {formatPct(conviction.avgChangePct, true)} {WINDOW_LABEL}
+            <SourcedNumber
+              source={combineRefs(
+                summary.tickers.flatMap((t) =>
+                  t.status === 'ok' && t.ref ? [t.ref] : [],
+                ),
+                `Bitget daily candles for ${summary.tickers.filter((t) => t.status === 'ok').length} stocks`,
+              )}
+              kind="average"
+              label="average price move"
+            >
+              {formatPct(conviction.avgChangePct, true)}
+            </SourcedNumber>{' '}
+            {WINDOW_LABEL}
           </span>
         </p>
         <ol className="meter-leaves" aria-label="7-day price move by stock">
@@ -620,13 +679,15 @@ function ThesisReading({
   now,
   titleRef,
   onTalkToUncle,
+  onPutOnTrial,
 }: {
   thesis: Thesis;
   summary: ThesisSummary | null;
   deck: DeckState;
   now: number;
   titleRef: Ref<HTMLHeadingElement>;
-  onTalkToUncle: (draft: string) => void;
+  onTalkToUncle: (draft: string, thesisId?: ThesisId | null) => void;
+  onPutOnTrial: (thesis: Thesis) => void;
 }) {
   const titleId = useId();
   const [origin, setOrigin] = useState('');
@@ -728,9 +789,16 @@ function ThesisReading({
             <button
               type="button"
               className="scroll-action scroll-action--primary"
-              onClick={() => onTalkToUncle(buildUncleDraft(thesis, summary))}
+              onClick={() => onTalkToUncle(buildUncleDraft(thesis, summary), thesis.id)}
             >
               Ask Uncle about this thesis
+            </button>
+            <button
+              type="button"
+              className="scroll-action"
+              onClick={() => onPutOnTrial(thesis)}
+            >
+              Put on trial: Failure Table
             </button>
             <button
               type="button"
@@ -743,6 +811,17 @@ function ThesisReading({
               </span>
               Trade on Bitget
             </button>
+            {rippleRoomUrl(thesis) && (
+              <a
+                className="scroll-action"
+                href={rippleRoomUrl(thesis) ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open the Ripple Room
+                <span className="sr-only"> (opens in a new tab)</span>
+              </a>
+            )}
             <div
               className="scroll-share"
               role="group"

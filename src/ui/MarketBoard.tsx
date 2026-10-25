@@ -7,6 +7,7 @@ import {
   formatRelative,
   shopErrorText,
 } from './deckModel';
+import { SourcedNumber } from './SourcedNumber';
 import './styles/bitget.css';
 import './styles/panels.css';
 
@@ -48,8 +49,9 @@ function Row({ row }: { row: MarketRow }) {
       <li className="mkt-row" data-state="missing">
         <span className="mkt-symbol">{row.symbol}</span>
         <span className="mkt-name">{row.name}</span>
-        <span className="mkt-missing">
-          {row.status === 'error' ? 'Bitget did not respond' : 'Not in the catalog'}
+        <span className="mkt-missing srclock-withheld">
+          Withheld:{' '}
+          {row.status === 'error' ? 'Bitget did not respond' : 'not in the catalog'}
         </span>
       </li>
     );
@@ -59,16 +61,24 @@ function Row({ row }: { row: MarketRow }) {
       <span className="mkt-symbol">{row.symbol}</span>
       <span className="mkt-name">{row.name}</span>
       <Spark closes={row.closes} tone={dir(row.weekChangePct)} />
-      <span className="mkt-price">{formatPrice(row.lastClose)}</span>
+      <span className="mkt-price">
+        <SourcedNumber source={row.ref} kind="close" label={`${row.symbol} last close`}>
+          {formatPrice(row.lastClose)}
+        </SourcedNumber>
+      </span>
       <span className="mkt-move" data-dir={tone}>
         <span className="mkt-glyph" aria-hidden="true">
           {tone === 'up' ? '▲' : tone === 'down' ? '▼' : '•'}
         </span>
-        {formatPct(row.dayChangePct, true)}
+        <SourcedNumber source={row.ref} kind="day_change" label={`${row.symbol} one day change`}>
+          {formatPct(row.dayChangePct, true)}
+        </SourcedNumber>
         <small>1D</small>
       </span>
       <span className="mkt-move mkt-move--week" data-dir={dir(row.weekChangePct)}>
-        {formatPct(row.weekChangePct, true)}
+        <SourcedNumber source={row.ref} kind="window_change" label={`${row.symbol} seven day change`}>
+          {formatPct(row.weekChangePct, true)}
+        </SourcedNumber>
         <small>7D</small>
       </span>
     </li>
@@ -141,24 +151,36 @@ export function MarketBoard({ modelUrl }: { modelUrl: string }) {
 
       {state.status === 'ready' && (
         <>
+          {state.board.ref?.marketClosed && (
+            <p className="srclock-banner" role="note">
+              The US market is closed. These token prices can be thin or stale
+              until it reopens. Tap any number to see its source.
+            </p>
+          )}
           <dl className="mkt-stats">
             <div>
               <dt>Rising today</dt>
               <dd>
-                {state.board.summary.risingToday}
+                <SourcedNumber source={state.board.ref} kind="count" label="stocks rising today">
+                  {state.board.summary.risingToday}
+                </SourcedNumber>
                 <small> of {state.board.summary.dayMeasured}</small>
               </dd>
             </div>
             <div>
               <dt>Average today</dt>
               <dd data-dir={dir(state.board.summary.avgDayPct)}>
-                {formatPct(state.board.summary.avgDayPct, true)}
+                <SourcedNumber source={state.board.ref} kind="average" label="average move today">
+                  {formatPct(state.board.summary.avgDayPct, true)}
+                </SourcedNumber>
               </dd>
             </div>
             <div>
               <dt>Average 7 days</dt>
               <dd data-dir={dir(state.board.summary.avgWeekPct)}>
-                {formatPct(state.board.summary.avgWeekPct, true)}
+                <SourcedNumber source={state.board.ref} kind="average" label="average move over seven days">
+                  {formatPct(state.board.summary.avgWeekPct, true)}
+                </SourcedNumber>
               </dd>
             </div>
             {state.board.summary.leader && state.board.summary.laggard && (
@@ -167,11 +189,23 @@ export function MarketBoard({ modelUrl }: { modelUrl: string }) {
                 <dd className="mkt-extremes">
                   <span data-dir="up">
                     {state.board.summary.leader.symbol}{' '}
-                    {formatPct(state.board.summary.leader.dayChangePct, true)}
+                    <SourcedNumber
+                      source={state.board.rows.find((r) => r.symbol === state.board.summary.leader?.symbol)?.ref}
+                      kind="day_change"
+                      label="leader one day change"
+                    >
+                      {formatPct(state.board.summary.leader.dayChangePct, true)}
+                    </SourcedNumber>
                   </span>
                   <span data-dir="down">
                     {state.board.summary.laggard.symbol}{' '}
-                    {formatPct(state.board.summary.laggard.dayChangePct, true)}
+                    <SourcedNumber
+                      source={state.board.rows.find((r) => r.symbol === state.board.summary.laggard?.symbol)?.ref}
+                      kind="day_change"
+                      label="laggard one day change"
+                    >
+                      {formatPct(state.board.summary.laggard.dayChangePct, true)}
+                    </SourcedNumber>
                   </span>
                 </dd>
               </div>

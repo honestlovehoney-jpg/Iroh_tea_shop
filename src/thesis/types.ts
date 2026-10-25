@@ -1,4 +1,7 @@
 // Shared contract for the deck config, the /api/theses routes, and the deck UI.
+import type { SourceRef } from './source-ref';
+
+export type { SourceRef };
 
 export type ThesisId = 'robinhood' | 'bullrun' | 'ai';
 
@@ -47,6 +50,8 @@ export interface TickerSignal {
   lastClose: number | null;
   /** Canonical Bitget Reality instrument id, when the catalog knows the ticker. */
   instrumentId: string | null;
+  /** Where changePct and lastClose came from. Null when no data backs them. */
+  ref?: SourceRef | null;
 }
 
 export interface ThesisSummary {
@@ -105,6 +110,8 @@ export interface TickerDetail {
   stale: boolean;
   candles: Section<CandleEvidence>;
   quote: Section<QuoteEvidence>;
+  candlesRef?: SourceRef | null;
+  quoteRef?: SourceRef | null;
 }
 
 /** Error body for every /api/theses response that is not 200. */
@@ -124,6 +131,8 @@ export interface MarketRow {
   /** Daily closes, oldest first, for the small chart. */
   closes: number[];
   instrumentId: string | null;
+  /** Where these figures came from. Null when the row has no data. */
+  ref?: SourceRef | null;
 }
 
 export interface MarketSummary {
@@ -141,4 +150,6 @@ export interface MarketSummary {
 export type MarketBoard = {
   rows: MarketRow[];
   summary: MarketSummary;
+  /** Source of the averages and counts: the newest row's candles. */
+  ref?: SourceRef | null;
 } & SnapshotMeta;

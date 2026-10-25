@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
+import { lockAnswer } from '@/thesis/answer-lock';
+import { usMarketOpen } from '@/thesis/evidence';
 import { db } from '@/auth/db';
+import { loadThesisContext } from '@/chat/thesis-context';
+import { UNCLE_VOICE, questionBlock, sanitizePriorMessages } from '@/chat/uncle-voice';
+import { loadDeckSnapshot } from '@/thesis/bitget-deck';
 import { callMcpTool, getEquityData } from '@/services/bitget/mcp-client';
 import { fetchSpotCandles, fetchSpotTicker } from '@/services/bitget/client';
 import { normalizeCandleRows } from '@/services/bitget/candle-normalizer';
@@ -380,6 +385,8 @@ export async function POST(request: Request) {
       question?: string;
       symbol?: string;
       instrumentId?: string;
+      priorMessages?: unknown;
+      thesisId?: unknown;
       discover?: boolean;
       probeLabels?: number[];
     };
@@ -435,7 +442,11 @@ export async function POST(request: Request) {
       .split(/[\s,]+/)
       .filter((item) => /^[A-Z.]{1,6}$/.test(item));
 
-    const [catalog, spotBases] = await Promise.all([loadCatalog(), loadSpotBases()]);
+    const [catalog, spotBases, thesisContext] = await Promise.all([
+      loadCatalog(),
+      loadSpotBases(),
+      loadThesisContext(body.thesisId, loadDeckSnapshot),
+    ]);
     timings.setupMs = Date.now() - t0;
 
     const spotSymbolByTicker = new Map<string, string>();
@@ -453,6 +464,12 @@ export async function POST(request: Request) {
       if (stockTargets.includes(hint) || cryptoBases.includes(hint)) continue;
       if (stockTickers.has(hint)) stockTargets.push(hint);
       else if (spotBases.has(hint)) cryptoBases.push(hint);
+    }
+    // A question like "what could disprove it?" names no stock. Fall back to the open thesis.
+    if (thesisContext && !stockTargets.length && !cryptoBases.length) {
+      for (const item of thesisContext.thesis.tickers) {
+        if (stockTickers.has(item.symbol)) stockTargets.push(item.symbol);
+      }
     }
     const stocks = stockTargets.slice(0, 4);
     const coins = cryptoBases.slice(0, 3);
@@ -617,6 +634,7 @@ export async function POST(request: Request) {
     const sourceList = [...sources];
 
     const systemPrompt = `You are Uncle, a market research assistant for a Bitget Reality Thesis Desk. You help a human trader stress test an idea. You never decide for them.
+${UNCLE_VOICE}
 STRICT RULES:
 1. EVIDENCE FIRST: Base answers only on the provided Bitget evidence.
 2. HONEST UNCERTAINTY: If data is missing, say so. Never invent prices, estimates, news or company facts.
@@ -630,16 +648,18 @@ STRICT RULES:
 10. RESEARCH ENTRIES: Each stock may carry research items such as analyst consensus, analyst price targets, the earnings calendar and valuation ratios. Use them as supporting or conflicting evidence. An earnings date within the next 14 days belongs under What would change this view. If an item has error or no data, list it under Data gaps. If underlyingQuote is null, the US stock quote call failed, which is separate from the research items. The marketMood block holds market-wide fear and greed readings, not asset-specific ones. Use it at most once as backdrop and say it is market-wide.
 11. FORECASTS: If the question asks what will happen, say you can't predict it, never answer yes or no, and test the idea against the past evidence instead.
 12. HISTORY: The history block is the historical distribution of rolling seven-day returns from Bitget daily candles, computed in code. For each pair, firstBeatsSecondPct is the share of windows where the first asset beat the second. Explain the history in everyday words. A window is a rolling 7-day period. Say, for example, 83 rolling 7-day periods, which is only about 12 separate weeks because the periods share days, and never call them observations. p10Pct is a bad week, one of the worst 1 in 10. p90Pct is a strong week, one of the best 1 in 10. worstPct is the worst 7-day stretch in the last 90 days. firstBeatsSecondPct is the share of 7-day periods where the first asset beat the second. For each asset named in the thesis, add one bullet under Evidence against with a bad week figure and the worst 7-day stretch, so the downside is visible. Overlapping windows are not independent, so never describe the result as proof or as a trend that will continue. Lead Evidence for and Evidence against with it when present, and list it under Data gaps only when it is missing for an instrument that was named. With one instrument, history.pairs is empty by design, so use history.assets alone.
-13. FORMAT: Plain text only, no markdown symbols except a hyphen at the start of a bullet. Use exactly these labels, each on its own line, in this order:
+13. FORMAT: Plain text only, no markdown symbols except a hyphen at the start of a bullet. Write the opening from the VOICE section first, then a blank line, then use exactly these labels, each on its own line, in this order:
 Verdict: one sentence that says whether the latest week and the history agree on the idea.
 Evidence for: up to 3 hyphen bullets.
 Evidence against: up to 3 hyphen bullets.
 What would change this view: 1 or 2 hyphen bullets naming a specific measurable signal.
 Data gaps: one line, or "None" if nothing is missing.
-14. LENGTH: Under 240 words in total.`;
+14. THESIS: If a thesis block is present, it is the idea under test. Name its title in the opening and judge it against the evidence. The momentum reading is price data only, so never say it proves or disproves the thesis. Use the thesis only when the question relates to it, and ignore it if the trader moved on to something else.
+15. LENGTH: Under 270 words in total, opening included.`;
 
-    const userPrompt = `User question: "${question}"
+    const userPrompt = `${questionBlock(question, body.priorMessages)}
 Instruments found in the question: ${symbol || 'none'}
+${thesisContext ? thesisContext.block + '\n' : ''}
 Time now (UTC): ${new Date().toISOString()}
 
 Bitget evidence:
@@ -719,11 +739,37 @@ ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
       qwenData.choices?.[0]?.message?.content?.trim() ||
       'No response generated.';
 
+    // Source Lock: every figure in the reply must match the evidence it was written from.
+    // Figures the trader typed (now or earlier in this chat) are theirs, and the thesis block
+    // carries the momentum reading the model was shown, so both count as supported.
+    const traderText = [
+      question,
+      ...sanitizePriorMessages(body.priorMessages)
+        .filter((m) => m.role === 'user')
+        .map((m) => m.content),
+    ].join(' ');
+    const locked = lockAnswer(
+      answer,
+      [mcpEvidence, comparisons, history, marketMood, thesisContext?.block ?? null],
+      traderText,
+    );
+    const lockedProvenance = {
+      ...provenance,
+      sourceLock: {
+        checked: locked.checked,
+        verified: locked.verified,
+        withheld: locked.withheld.length,
+        refused: locked.refused,
+        // Stocks here are tokens of US shares. When the US market is shut their price can be thin or stale.
+        usMarketClosed: stocks.length > 0 && !usMarketOpen(new Date()),
+      },
+    };
+
     return NextResponse.json({
       question,
-      answer,
+      answer: locked.text,
       debug,
-      provenance,
+      provenance: lockedProvenance,
       marketMood,
       comparisons,
       history,

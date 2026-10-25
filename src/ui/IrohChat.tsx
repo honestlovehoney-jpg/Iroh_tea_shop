@@ -262,14 +262,14 @@ export function IrohChat({
     <div className="iroh-chat">
       <header className="iroh-chat-head">
         <div className="iroh-chat-title">
-          <div className="eyebrow">THE HOST · DESK ANALYST</div>
+          <div className="eyebrow">THE HOST · UNCLE</div>
           <h1>
             Ask <em>Uncle</em>
           </h1>
           <p>
             {false || hasUserKey
               ? 'Bitget research desk'
-              : 'Desk Analyst · Bitget evidence + Qwen · read-only'}
+              : 'Uncle · Bitget evidence + Qwen · read-only'}
           </p>
         </div>
         <div className="iroh-chat-actions">
@@ -343,14 +343,11 @@ export function IrohChat({
                   Bitget market evidence.
                 </p>
               )}
-              {false && !dailyCap && (
-                <>
-                  <p>
-                    Desk Analyst is not connected to Bitget tools yet.
-                    one below.
-                  </p>
-                  {byokActions}
-                </>
+              {research === 'unavailable' && !dailyCap && (
+                <p>
+                  Uncle can’t reach his research desk right now, so he can’t
+                  bring back Bitget evidence. Please try again later.
+                </p>
               )}
               {!user && (
                 <p>
@@ -398,6 +395,30 @@ export function IrohChat({
                         ]
                           .filter(Boolean)
                           .join(' · ')}
+                        {message.provenance.sourceLock && (
+                          <span
+                            className="iroh-lock"
+                            data-withheld={
+                              message.provenance.sourceLock.withheld > 0 ||
+                              message.provenance.sourceLock.refused
+                            }
+                          >
+                            {' '}
+                            Source Lock:{' '}
+                            {message.provenance.sourceLock.refused
+                              ? 'answer refused, its figures did not match the evidence'
+                              : message.provenance.sourceLock.checked === 0
+                                ? 'no figures to check'
+                                : `${message.provenance.sourceLock.verified} of ${message.provenance.sourceLock.checked} figures matched the Bitget evidence${
+                                    message.provenance.sourceLock.withheld > 0
+                                      ? `, ${message.provenance.sourceLock.withheld} withheld`
+                                      : ''
+                                  }`}
+                            {message.provenance.sourceLock.usMarketClosed
+                              ? '. The US market is closed, so token prices may be thin or stale.'
+                              : '.'}
+                          </span>
+                        )}
                       </p>
                     ) : null}
                   </>
@@ -410,7 +431,7 @@ export function IrohChat({
           {chat.isStreaming && (
             <p className="iroh-activity" role="status">
               {true && !hasUserKey
-                ? 'Desk Analyst · Bitget evidence + Qwen · read-only'
+                ? 'Uncle · Bitget evidence + Qwen · read-only'
                 : chat.currentTool
                   ? `Researching: ${chat.currentTool}`
                   : 'Uncle is thinking…'}
@@ -474,7 +495,7 @@ export function IrohChat({
               : needsUserKey
                 ? dailyCap
                   ? 'Daily limit reached. Enter your key to continue.'
-                  : 'Desk Analyst · Bitget evidence + Qwen · read-only'
+                  : 'Uncle · Bitget evidence + Qwen · read-only'
                 : 'Ask about any stock or coin, e.g. Is TSLA stronger than Bitcoin this week?'
           }
           rows={2}
@@ -503,7 +524,7 @@ export function IrohChat({
               className="primary"
               disabled={!draft.trim() || historyLoading || chat.isStreaming}
             >
-              Ask Analyst <span aria-hidden="true">→</span>
+              Ask Uncle <span aria-hidden="true">→</span>
             </button>
           )}
         </div>

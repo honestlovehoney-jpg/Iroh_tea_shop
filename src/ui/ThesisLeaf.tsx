@@ -15,6 +15,7 @@ import {
   formatVolume,
   shopErrorText,
 } from './deckModel';
+import { SourcedNumber } from './SourcedNumber';
 
 // Reuse a loaded detail for a few minutes, so reopening a stock is instant.
 const DETAIL_REUSE_MS = 5 * 60 * 1000;
@@ -124,26 +125,44 @@ function Detail({ detail, now }: { detail: TickerDetail; now: number }) {
           {({ rows, changePct, high, low }) => (
             <>
               <p className="leaf-stat">
-                <strong>{formatPct(changePct, true)}</strong> over{' '}
-                {rows.length} days · range {formatPrice(low)} to{' '}
-                {formatPrice(high)}
+                <strong>
+                  <SourcedNumber source={detail.candlesRef} kind="window_change" label={`${detail.symbol} change over the window`}>
+                    {formatPct(changePct, true)}
+                  </SourcedNumber>
+                </strong>{' '}
+                over {rows.length} days · range{' '}
+                <SourcedNumber source={detail.candlesRef} kind="range" label={`${detail.symbol} low`}>
+                  {formatPrice(low)}
+                </SourcedNumber>{' '}
+                to{' '}
+                <SourcedNumber source={detail.candlesRef} kind="range" label={`${detail.symbol} high`}>
+                  {formatPrice(high)}
+                </SourcedNumber>
               </p>
               <ul className="leaf-list">
                 {[...rows].reverse().map((row) => (
                   <li key={row.date}>
                     <span className="leaf-who">{formatDay(row.date)}</span>
                     <span className="leaf-money">
-                      {formatPrice(row.open)} → {formatPrice(row.close)}
+                      <SourcedNumber source={detail.candlesRef} kind="candle" label={`${formatDay(row.date)} open`}>
+                        {formatPrice(row.open)}
+                      </SourcedNumber>{' '}
+                      →{' '}
+                      <SourcedNumber source={detail.candlesRef} kind="candle" label={`${formatDay(row.date)} close`}>
+                        {formatPrice(row.close)}
+                      </SourcedNumber>
                     </span>
                     <span
                       className={row.close >= row.open ? 'leaf-pos' : 'leaf-neg'}
                     >
-                      {formatPct(
-                        row.open === 0
-                          ? null
-                          : ((row.close - row.open) / row.open) * 100,
-                        true,
-                      )}
+                      <SourcedNumber source={detail.candlesRef} kind="candle_move" label={`${formatDay(row.date)} move`}>
+                        {formatPct(
+                          row.open === 0
+                            ? null
+                            : ((row.close - row.open) / row.open) * 100,
+                          true,
+                        )}
+                      </SourcedNumber>
                     </span>
                   </li>
                 ))}
@@ -157,30 +176,30 @@ function Detail({ detail, now }: { detail: TickerDetail; now: number }) {
             <ul className="leaf-list">
               <li>
                 <span className="leaf-who">Last price</span>
-                <span className="leaf-money">{formatPrice(quote.lastPrice)}</span>
+                <span className="leaf-money"><SourcedNumber source={detail.quoteRef} kind="quote" label="quote lastPrice">{formatPrice(quote.lastPrice)}</SourcedNumber></span>
               </li>
               <li>
                 <span className="leaf-who">Open</span>
-                <span className="leaf-money">{formatPrice(quote.open)}</span>
+                <span className="leaf-money"><SourcedNumber source={detail.quoteRef} kind="quote" label="quote open">{formatPrice(quote.open)}</SourcedNumber></span>
               </li>
               <li>
                 <span className="leaf-who">High</span>
-                <span className="leaf-pos">{formatPrice(quote.high)}</span>
+                <span className="leaf-pos"><SourcedNumber source={detail.quoteRef} kind="quote" label="quote high">{formatPrice(quote.high)}</SourcedNumber></span>
               </li>
               <li>
                 <span className="leaf-who">Low</span>
-                <span className="leaf-neg">{formatPrice(quote.low)}</span>
+                <span className="leaf-neg"><SourcedNumber source={detail.quoteRef} kind="quote" label="quote low">{formatPrice(quote.low)}</SourcedNumber></span>
               </li>
               <li>
                 <span className="leaf-who">Volume</span>
-                <span className="leaf-money">{formatVolume(quote.volume)}</span>
+                <span className="leaf-money"><SourcedNumber source={detail.quoteRef} kind="quote" label="quote volume">{formatVolume(quote.volume)}</SourcedNumber></span>
               </li>
             </ul>
           )}
         </DetailSection>
       </div>
       <p className="leaf-quiet">
-        Sources: Bitget candles
+        Tap any underlined number to see its source and time. Sources: Bitget candles
         {detail.instrumentId ? ` for ${detail.instrumentId}` : ''} and Bitget
         MCP equity_price_quote. Read-only research, not advice.
       </p>
