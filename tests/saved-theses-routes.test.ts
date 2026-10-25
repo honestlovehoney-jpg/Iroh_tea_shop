@@ -98,7 +98,11 @@ const unclePaths = (n: number, extra: Record<string, unknown> = {}) =>
       probability: 0.1 + i / 20,
       impactPct: 5 + i,
       deadline: future(90),
-      trigger: { kind: 'date', level: null, note: 'Watch the earnings release' },
+      trigger: {
+        kind: 'date',
+        level: null,
+        note: 'Watch the earnings release',
+      },
       ...extra,
     })),
   });
@@ -129,19 +133,26 @@ describe('owner scoping', () => {
     expect(others.theses).toHaveLength(0);
     expect((await one.GET(req('GET', GUEST_B), ctx(mine.id))).status).toBe(404);
     expect((await one.GET(req('GET', GUEST_A), ctx(mine.id))).status).toBe(200);
-    expect((await one.DELETE(req('DELETE', GUEST_B), ctx(mine.id))).status).toBe(404);
+    expect(
+      (await one.DELETE(req('DELETE', GUEST_B), ctx(mine.id))).status,
+    ).toBe(404);
     const ownList = await (await list.GET(req('GET', GUEST_A))).json();
     expect(ownList.theses).toHaveLength(1);
   });
 
   it('rejects a thesis with no real statement and a cross-site post', async () => {
     resetAll();
-    const short = await list.POST(req('POST', GUEST_A, { title: 'Hi', content: 'short' }));
+    const short = await list.POST(
+      req('POST', GUEST_A, { title: 'Hi', content: 'short' }),
+    );
     expect(short.status).toBe(400);
     const cross = await list.POST(
       new Request('http://localhost/api/saved-theses', {
         method: 'POST',
-        headers: { 'sec-fetch-site': 'cross-site', 'content-type': 'application/json' },
+        headers: {
+          'sec-fetch-site': 'cross-site',
+          'content-type': 'application/json',
+        },
         body: '{}',
       }),
     );
@@ -154,10 +165,16 @@ describe('the Failure Table gate', () => {
     resetAll();
     const t = await newThesis(GUEST_A);
     const url = `/api/saved-theses/${t.id}/advance`;
-    const empty = await advance.POST(req('POST', GUEST_A, { to: 'failures_resolved' }, url), ctx(t.id));
+    const empty = await advance.POST(
+      req('POST', GUEST_A, { to: 'failures_resolved' }, url),
+      ctx(t.id),
+    );
     expect(empty.status).toBe(409);
     expect((await empty.json()).code).toBe('blocked');
-    const skip = await advance.POST(req('POST', GUEST_A, { to: 'locked' }, url), ctx(t.id));
+    const skip = await advance.POST(
+      req('POST', GUEST_A, { to: 'locked' }, url),
+      ctx(t.id),
+    );
     expect(skip.status).toBe(409);
     expect((await skip.json()).code).toBe('out_of_order');
   });
@@ -167,19 +184,33 @@ describe('the Failure Table gate', () => {
     const t = await newThesis(GUEST_A);
     await addOwnPaths(GUEST_A, t.id, 3);
     const url = `/api/saved-theses/${t.id}/advance`;
-    const ok = await advance.POST(req('POST', GUEST_A, { to: 'failures_resolved' }, url), ctx(t.id));
+    const ok = await advance.POST(
+      req('POST', GUEST_A, { to: 'failures_resolved' }, url),
+      ctx(t.id),
+    );
     expect(ok.status).toBe(200);
     expect((await ok.json()).thesis.status).toBe('failures_resolved');
 
     const late = await paths.POST(
-      req('POST', GUEST_A, goodPath(), `/api/saved-theses/${t.id}/failure-paths`),
+      req(
+        'POST',
+        GUEST_A,
+        goodPath(),
+        `/api/saved-theses/${t.id}/failure-paths`,
+      ),
       ctx(t.id),
     );
     expect(late.status).toBe(409);
-    const next = await advance.POST(req('POST', GUEST_A, { to: 'evidence_reviewed' }, url), ctx(t.id));
+    const next = await advance.POST(
+      req('POST', GUEST_A, { to: 'evidence_reviewed' }, url),
+      ctx(t.id),
+    );
     expect(next.status).toBe(409);
     expect((await next.json()).code).toBe('blocked');
-    const sealed = await advance.POST(req('POST', GUEST_A, { to: 'sealed' }, url), ctx(t.id));
+    const sealed = await advance.POST(
+      req('POST', GUEST_A, { to: 'sealed' }, url),
+      ctx(t.id),
+    );
     expect((await sealed.json()).code).toBe('out_of_order');
   });
 
@@ -188,7 +219,12 @@ describe('the Failure Table gate', () => {
     const t = await newThesis(GUEST_A);
     await addOwnPaths(GUEST_A, t.id, 3);
     const stolen = await advance.POST(
-      req('POST', GUEST_B, { to: 'failures_resolved' }, `/api/saved-theses/${t.id}/advance`),
+      req(
+        'POST',
+        GUEST_B,
+        { to: 'failures_resolved' },
+        `/api/saved-theses/${t.id}/advance`,
+      ),
       ctx(t.id),
     );
     expect(stolen.status).toBe(404);
@@ -199,7 +235,12 @@ describe('the Failure Table gate', () => {
     const t = await newThesis(GUEST_A);
     await addOwnPaths(GUEST_A, t.id, 5);
     const sixth = await paths.POST(
-      req('POST', GUEST_A, goodPath(), `/api/saved-theses/${t.id}/failure-paths`),
+      req(
+        'POST',
+        GUEST_A,
+        goodPath(),
+        `/api/saved-theses/${t.id}/failure-paths`,
+      ),
       ctx(t.id),
     );
     expect(sixth.status).toBe(409);
@@ -212,7 +253,12 @@ describe('Uncle writes the paths, you decide', () => {
     const t = await newThesis(GUEST_A);
     stubQwen(unclePaths(3));
     const made = await generate.POST(
-      req('POST', GUEST_A, undefined, `/api/saved-theses/${t.id}/failure-paths/generate`),
+      req(
+        'POST',
+        GUEST_A,
+        undefined,
+        `/api/saved-theses/${t.id}/failure-paths/generate`,
+      ),
       ctx(t.id),
     );
     expect(made.status).toBe(200);
@@ -221,21 +267,44 @@ describe('Uncle writes the paths, you decide', () => {
     expect(thesis.premortem.pending).toBe(3);
 
     const advanceUrl = `/api/saved-theses/${t.id}/advance`;
-    const blocked = await advance.POST(req('POST', GUEST_A, { to: 'failures_resolved' }, advanceUrl), ctx(t.id));
+    const blocked = await advance.POST(
+      req('POST', GUEST_A, { to: 'failures_resolved' }, advanceUrl),
+      ctx(t.id),
+    );
     expect(blocked.status).toBe(409);
 
     const [a, b, c] = thesis.failurePaths as { id: string }[];
     const patch = (id: string, body: unknown) =>
       pathOne.PATCH(
-        req('PATCH', GUEST_A, body, `/api/saved-theses/${t.id}/failure-paths/${id}`),
+        req(
+          'PATCH',
+          GUEST_A,
+          body,
+          `/api/saved-theses/${t.id}/failure-paths/${id}`,
+        ),
         ctx(t.id, id),
       );
     expect((await patch(a.id, { action: 'accept' })).status).toBe(200);
-    expect((await patch(b.id, { action: 'modify', edits: { probability: 0.4 } })).status).toBe(200);
-    expect((await patch(c.id, { action: 'reject', reason: 'no' })).status).toBe(400);
-    expect((await patch(c.id, { action: 'reject', reason: 'Already hedged with a put option.' })).status).toBe(200);
+    expect(
+      (await patch(b.id, { action: 'modify', edits: { probability: 0.4 } }))
+        .status,
+    ).toBe(200);
+    expect((await patch(c.id, { action: 'reject', reason: 'no' })).status).toBe(
+      400,
+    );
+    expect(
+      (
+        await patch(c.id, {
+          action: 'reject',
+          reason: 'Already hedged with a put option.',
+        })
+      ).status,
+    ).toBe(200);
 
-    const done = await advance.POST(req('POST', GUEST_A, { to: 'failures_resolved' }, advanceUrl), ctx(t.id));
+    const done = await advance.POST(
+      req('POST', GUEST_A, { to: 'failures_resolved' }, advanceUrl),
+      ctx(t.id),
+    );
     expect(done.status).toBe(200);
     const saved = (await done.json()).thesis;
     expect(saved.failurePaths[1].modified).toBe(true);
@@ -248,7 +317,12 @@ describe('Uncle writes the paths, you decide', () => {
     stubQwen(unclePaths(3));
     const made = await (
       await generate.POST(
-        req('POST', GUEST_A, undefined, `/api/saved-theses/${t.id}/failure-paths/generate`),
+        req(
+          'POST',
+          GUEST_A,
+          undefined,
+          `/api/saved-theses/${t.id}/failure-paths/generate`,
+        ),
         ctx(t.id),
       )
     ).json();
@@ -256,17 +330,33 @@ describe('Uncle writes the paths, you decide', () => {
     const patch = (body: unknown) =>
       pathOne.PATCH(req('PATCH', GUEST_A, body, `/x`), ctx(t.id, id));
     expect((await patch({ action: 'modify', edits: {} })).status).toBe(400);
-    expect((await patch({ action: 'modify', edits: { probability: 4 } })).status).toBe(400);
-    expect((await patch({ action: 'modify', edits: { deadline: '2020-01-01' } })).status).toBe(400);
+    expect(
+      (await patch({ action: 'modify', edits: { probability: 4 } })).status,
+    ).toBe(400);
+    expect(
+      (await patch({ action: 'modify', edits: { deadline: '2020-01-01' } }))
+        .status,
+    ).toBe(400);
     expect((await patch({ action: 'nonsense' })).status).toBe(400);
   });
 
   it('stores nothing when Uncle only writes vague paths', async () => {
     resetAll();
     const t = await newThesis(GUEST_A);
-    stubQwen(JSON.stringify({ paths: [{ condition: 'The market turns against it badly.', probability: 0.3 }] }));
+    stubQwen(
+      JSON.stringify({
+        paths: [
+          { condition: 'The market turns against it badly.', probability: 0.3 },
+        ],
+      }),
+    );
     const made = await generate.POST(
-      req('POST', GUEST_A, undefined, `/api/saved-theses/${t.id}/failure-paths/generate`),
+      req(
+        'POST',
+        GUEST_A,
+        undefined,
+        `/api/saved-theses/${t.id}/failure-paths/generate`,
+      ),
       ctx(t.id),
     );
     expect(made.status).toBe(502);
@@ -280,7 +370,12 @@ describe('Uncle writes the paths, you decide', () => {
     delete process.env.QWEN_BASE_URL;
     delete process.env.QWEN_API_KEY;
     const made = await generate.POST(
-      req('POST', GUEST_A, undefined, `/api/saved-theses/${t.id}/failure-paths/generate`),
+      req(
+        'POST',
+        GUEST_A,
+        undefined,
+        `/api/saved-theses/${t.id}/failure-paths/generate`,
+      ),
       ctx(t.id),
     );
     expect(made.status).toBe(503);
@@ -292,17 +387,26 @@ describe('Uncle writes the paths, you decide', () => {
     stubQwen(unclePaths(3));
     const made = await (
       await generate.POST(
-        req('POST', GUEST_A, undefined, `/api/saved-theses/${t.id}/failure-paths/generate`),
+        req(
+          'POST',
+          GUEST_A,
+          undefined,
+          `/api/saved-theses/${t.id}/failure-paths/generate`,
+        ),
         ctx(t.id),
       )
     ).json();
     const uncleId = made.thesis.failurePaths[0].id as string;
-    expect((await pathOne.DELETE(req('DELETE', GUEST_A), ctx(t.id, uncleId))).status).toBe(409);
+    expect(
+      (await pathOne.DELETE(req('DELETE', GUEST_A), ctx(t.id, uncleId))).status,
+    ).toBe(409);
     await addOwnPaths(GUEST_A, t.id, 1);
-    const own = (await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json()).thesis.failurePaths.find(
-      (p: { source: string }) => p.source === 'user',
-    );
-    expect((await pathOne.DELETE(req('DELETE', GUEST_A), ctx(t.id, own.id))).status).toBe(200);
+    const own = (
+      await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json()
+    ).thesis.failurePaths.find((p: { source: string }) => p.source === 'user');
+    expect(
+      (await pathOne.DELETE(req('DELETE', GUEST_A), ctx(t.id, own.id))).status,
+    ).toBe(200);
   });
 });
 
@@ -339,14 +443,17 @@ describe('resurfacing', () => {
       }),
     });
     const t = await newThesis(GUEST_A, { symbol: 'aapl' });
-    const detail = (await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json()).thesis;
+    const detail = (
+      await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json()
+    ).thesis;
     expect(detail.instrumentId).toBe('RAAPLUSDT');
     const added = await paths.POST(
       req(
         'POST',
         GUEST_A,
         goodPath({
-          condition: 'AAPL closes below 170 on the daily candle before the January earnings call.',
+          condition:
+            'AAPL closes below 170 on the daily candle before the January earnings call.',
           triggerKind: 'price_below',
           triggerLevel: 170,
           triggerNote: 'Daily close under 170',
@@ -357,12 +464,16 @@ describe('resurfacing', () => {
     );
     expect(added.status).toBe(201);
 
-    const seen = await (await watch.GET(req('GET', GUEST_A, undefined, '/api/saved-theses/watch'))).json();
+    const seen = await (
+      await watch.GET(req('GET', GUEST_A, undefined, '/api/saved-theses/watch'))
+    ).json();
     expect(seen.alerts).toHaveLength(1);
     expect(seen.alerts[0].state).toBe('breached');
     expect(seen.alerts[0].price).toBe(160);
 
-    const stranger = await (await watch.GET(req('GET', GUEST_B, undefined, '/api/saved-theses/watch'))).json();
+    const stranger = await (
+      await watch.GET(req('GET', GUEST_B, undefined, '/api/saved-theses/watch'))
+    ).json();
     expect(stranger.alerts).toHaveLength(0);
   });
 
@@ -370,7 +481,12 @@ describe('resurfacing', () => {
     resetAll();
     const t = await newThesis(GUEST_A, { symbol: 'ZZZZ' });
     const added = await paths.POST(
-      req('POST', GUEST_A, goodPath({ triggerKind: 'price_below', triggerLevel: 10 }), `/api/saved-theses/${t.id}/failure-paths`),
+      req(
+        'POST',
+        GUEST_A,
+        goodPath({ triggerKind: 'price_below', triggerLevel: 10 }),
+        `/api/saved-theses/${t.id}/failure-paths`,
+      ),
       ctx(t.id),
     );
     expect(added.status).toBe(400);
@@ -411,7 +527,9 @@ describe('Source Lock: the Evidence Shelf', () => {
       underlyingTicker: 'AAPL',
       weekendTradable: 'yes',
     });
-    cache('RAAPLUSDT:candles:1hour:3', [candle(201.5, new Date().toISOString())]);
+    cache('RAAPLUSDT:candles:1hour:3', [
+      candle(201.5, new Date().toISOString()),
+    ]);
     cache(
       'RAAPLUSDT:candles:1day:30',
       Array.from({ length: 10 }, (_, i) =>
@@ -420,11 +538,19 @@ describe('Source Lock: the Evidence Shelf', () => {
     );
   }
 
-  async function signedOffThesis(guest: string, extra: Record<string, unknown> = {}) {
+  async function signedOffThesis(
+    guest: string,
+    extra: Record<string, unknown> = {},
+  ) {
     const t = await newThesis(guest, extra);
     await addOwnPaths(guest, t.id, 3);
     const done = await advance.POST(
-      req('POST', guest, { to: 'failures_resolved' }, `/api/saved-theses/${t.id}/advance`),
+      req(
+        'POST',
+        guest,
+        { to: 'failures_resolved' },
+        `/api/saved-theses/${t.id}/advance`,
+      ),
       ctx(t.id),
     );
     expect(done.status).toBe(200);
@@ -432,10 +558,18 @@ describe('Source Lock: the Evidence Shelf', () => {
   }
   const base = (id: string) => `/api/saved-theses/${id}/evidence`;
   const refresh = (guest: string, id: string) =>
-    evidenceRefresh.POST(req('POST', guest, undefined, `${base(id)}/refresh`), ctx(id));
+    evidenceRefresh.POST(
+      req('POST', guest, undefined, `${base(id)}/refresh`),
+      ctx(id),
+    );
   const toEvidence = (guest: string, id: string) =>
     advance.POST(
-      req('POST', guest, { to: 'evidence_reviewed' }, `/api/saved-theses/${id}/advance`),
+      req(
+        'POST',
+        guest,
+        { to: 'evidence_reviewed' },
+        `/api/saved-theses/${id}/advance`,
+      ),
       ctx(id),
     );
 
@@ -443,7 +577,10 @@ describe('Source Lock: the Evidence Shelf', () => {
     resetAll();
     const t = await newThesis(GUEST_A);
     expect((await refresh(GUEST_A, t.id)).status).toBe(409);
-    const add = await evidence.POST(req('POST', GUEST_A, {}, base(t.id)), ctx(t.id));
+    const add = await evidence.POST(
+      req('POST', GUEST_A, {}, base(t.id)),
+      ctx(t.id),
+    );
     expect(add.status).toBe(409);
   });
 
@@ -467,7 +604,12 @@ describe('Source Lock: the Evidence Shelf', () => {
     expect((await blocked.json()).code).toBe('blocked');
 
     const ack = await evidenceOne.PATCH(
-      req('PATCH', GUEST_A, { acknowledge: true }, `${base(t.id)}/${change.id}`),
+      req(
+        'PATCH',
+        GUEST_A,
+        { acknowledge: true },
+        `${base(t.id)}/${change.id}`,
+      ),
       claimCtx(t.id, change.id),
     );
     expect(ack.status).toBe(200);
@@ -509,7 +651,12 @@ describe('Source Lock: the Evidence Shelf', () => {
     resetAll();
     const t = await signedOffThesis(GUEST_A, { symbol: 'ZZZZ' });
     const wrongHost = await evidence.POST(
-      req('POST', GUEST_A, { ...secClaim, sourceUrl: 'https://example.com/10k' }, base(t.id)),
+      req(
+        'POST',
+        GUEST_A,
+        { ...secClaim, sourceUrl: 'https://example.com/10k' },
+        base(t.id),
+      ),
       ctx(t.id),
     );
     expect(wrongHost.status).toBe(400);
@@ -520,11 +667,17 @@ describe('Source Lock: the Evidence Shelf', () => {
     const t = await signedOffThesis(GUEST_A, { symbol: 'ZZZZ' });
 
     serve('Total net sales were $9.1 billion for the year.');
-    const missing = await evidence.POST(req('POST', GUEST_A, secClaim, base(t.id)), ctx(t.id));
+    const missing = await evidence.POST(
+      req('POST', GUEST_A, secClaim, base(t.id)),
+      ctx(t.id),
+    );
     expect(missing.status).toBe(422);
 
     serve('Total net sales were $12.4 billion for the year.');
-    const added = await evidence.POST(req('POST', GUEST_A, secClaim, base(t.id)), ctx(t.id));
+    const added = await evidence.POST(
+      req('POST', GUEST_A, secClaim, base(t.id)),
+      ctx(t.id),
+    );
     expect(added.status).toBe(201);
     const claim = (await added.json()).thesis.claims[0];
     expect(claim.state).toBe('observed');
@@ -537,8 +690,12 @@ describe('Source Lock: the Evidence Shelf', () => {
     resetAll();
     const t = await signedOffThesis(GUEST_A, { symbol: 'ZZZZ' });
     process.env.SOURCE_FETCH_USER_AGENT = 'Tester test@example.com';
-    globalThis.fetch = (async () => new Response('down', { status: 503 })) as typeof fetch;
-    const added = await evidence.POST(req('POST', GUEST_A, secClaim, base(t.id)), ctx(t.id));
+    globalThis.fetch = (async () =>
+      new Response('down', { status: 503 })) as typeof fetch;
+    const added = await evidence.POST(
+      req('POST', GUEST_A, secClaim, base(t.id)),
+      ctx(t.id),
+    );
     expect(added.status).toBe(201);
     const claim = (await added.json()).thesis.claims[0];
     expect(claim.state).toBe('inferred');
@@ -552,10 +709,26 @@ describe('Source Lock: the Evidence Shelf', () => {
     seedMarket();
     const t = await signedOffThesis(GUEST_A, { symbol: 'AAPL' });
     const made = await (await refresh(GUEST_A, t.id)).json();
-    const priceId = made.thesis.claims.find((c: { key: string }) => c.key === 'last_price').id as string;
+    const priceId = made.thesis.claims.find(
+      (c: { key: string }) => c.key === 'last_price',
+    ).id as string;
     expect((await refresh(GUEST_B, t.id)).status).toBe(404);
-    expect((await evidenceOne.DELETE(req('DELETE', GUEST_B), claimCtx(t.id, priceId))).status).toBe(404);
-    expect((await evidenceOne.DELETE(req('DELETE', GUEST_A), claimCtx(t.id, priceId))).status).toBe(409);
+    expect(
+      (
+        await evidenceOne.DELETE(
+          req('DELETE', GUEST_B),
+          claimCtx(t.id, priceId),
+        )
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await evidenceOne.DELETE(
+          req('DELETE', GUEST_A),
+          claimCtx(t.id, priceId),
+        )
+      ).status,
+    ).toBe(409);
     const nothing = await evidenceOne.PATCH(
       req('PATCH', GUEST_A, { acknowledge: true }, 'x'),
       claimCtx(t.id, priceId),
@@ -603,7 +776,9 @@ describe('Probability Seal', () => {
       underlyingTicker: 'AAPL',
       weekendTradable: 'yes',
     });
-    const rows = Array.from({ length: n }, (_, i) => candle(100 + i, todayStart() - (n - 1 - i) * DAY));
+    const rows = Array.from({ length: n }, (_, i) =>
+      candle(100 + i, todayStart() - (n - 1 - i) * DAY),
+    );
     cache('RAAPLUSDT:candles:1day:100', rows);
     cache('RAAPLUSDT:candles:1day:30', rows.slice(-30));
     cache('RAAPLUSDT:candles:1hour:3', [candle(100 + n - 1, Date.now())]);
@@ -614,7 +789,12 @@ describe('Probability Seal', () => {
     const t = await newThesis(guest, { symbol: 'AAPL' });
     await addOwnPaths(guest, t.id, 3);
     await advance.POST(
-      req('POST', guest, { to: 'failures_resolved' }, `/api/saved-theses/${t.id}/advance`),
+      req(
+        'POST',
+        guest,
+        { to: 'failures_resolved' },
+        `/api/saved-theses/${t.id}/advance`,
+      ),
       ctx(t.id),
     );
     const made = await (
@@ -622,9 +802,17 @@ describe('Probability Seal', () => {
     ).json();
     for (const c of made.thesis.claims as { id: string; state: string }[])
       if (c.state === 'inferred')
-        await evidenceOne.PATCH(req('PATCH', guest, { acknowledge: true }, '/x'), claimCtx(t.id, c.id));
+        await evidenceOne.PATCH(
+          req('PATCH', guest, { acknowledge: true }, '/x'),
+          claimCtx(t.id, c.id),
+        );
     const done = await advance.POST(
-      req('POST', guest, { to: 'evidence_reviewed' }, `/api/saved-theses/${t.id}/advance`),
+      req(
+        'POST',
+        guest,
+        { to: 'evidence_reviewed' },
+        `/api/saved-theses/${t.id}/advance`,
+      ),
       ctx(t.id),
     );
     expect(done.status).toBe(200);
@@ -632,7 +820,10 @@ describe('Probability Seal', () => {
   }
 
   const sealIt = (guest: string, id: string, body: Record<string, unknown>) =>
-    seal.POST(req('POST', guest, body, `/api/saved-theses/${id}/seal`), ctx(id));
+    seal.POST(
+      req('POST', guest, body, `/api/saved-theses/${id}/seal`),
+      ctx(id),
+    );
 
   function qwenReplies(probability: unknown, capture?: { body: string }) {
     process.env.QWEN_BASE_URL = 'http://qwen.test';
@@ -641,7 +832,16 @@ describe('Probability Seal', () => {
       if (capture) capture.body = String(init?.body ?? '');
       return new Response(
         JSON.stringify({
-          choices: [{ message: { content: JSON.stringify({ probability, rationale: 'Momentum is mixed.' }) } }],
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  probability,
+                  rationale: 'Momentum is mixed.',
+                }),
+              },
+            },
+          ],
         }),
         { status: 200 },
       );
@@ -652,18 +852,26 @@ describe('Probability Seal', () => {
     resetAll();
     seedMarket();
     const t = await newThesis(GUEST_A, { symbol: 'AAPL' });
-    const early = await sealIt(GUEST_A, t.id, { direction: 'up', probability: 0.6, horizonDays: 7 });
+    const early = await sealIt(GUEST_A, t.id, {
+      direction: 'up',
+      probability: 0.6,
+      horizonDays: 7,
+    });
     expect(early.status).toBe(409);
     expect((await early.json()).code).toBe('out_of_order');
   });
 
-  it('seals your forecast next to Uncle\'s, which never saw yours, and then refuses to change it', async () => {
+  it("seals your forecast next to Uncle's, which never saw yours, and then refuses to change it", async () => {
     resetAll();
     seedMarket();
     const t = await reviewedThesis(GUEST_A);
     const capture = { body: '' };
     qwenReplies(0.62, capture);
-    const made = await sealIt(GUEST_A, t.id, { direction: 'up', probability: 0.7312, horizonDays: 7 });
+    const made = await sealIt(GUEST_A, t.id, {
+      direction: 'up',
+      probability: 0.7312,
+      horizonDays: 7,
+    });
     expect(made.status).toBe(201);
     const view = (await made.json()).thesis;
     expect(view.status).toBe('sealed');
@@ -675,13 +883,28 @@ describe('Probability Seal', () => {
     expect(view.seal.resolvesAt > view.seal.sealedAt).toBe(true);
     expect(capture.body.includes('7312')).toBe(false);
 
-    expect((await sealIt(GUEST_A, t.id, { direction: 'down', probability: 0.2, horizonDays: 7 })).status).toBe(409);
+    expect(
+      (
+        await sealIt(GUEST_A, t.id, {
+          direction: 'down',
+          probability: 0.2,
+          horizonDays: 7,
+        })
+      ).status,
+    ).toBe(409);
     const adv = await advance.POST(
-      req('POST', GUEST_A, { to: 'sealed' }, `/api/saved-theses/${t.id}/advance`),
+      req(
+        'POST',
+        GUEST_A,
+        { to: 'sealed' },
+        `/api/saved-theses/${t.id}/advance`,
+      ),
       ctx(t.id),
     );
     expect(adv.status).toBe(409);
-    expect((await one.DELETE(req('DELETE', GUEST_A), ctx(t.id))).status).toBe(409);
+    expect((await one.DELETE(req('DELETE', GUEST_A), ctx(t.id))).status).toBe(
+      409,
+    );
   });
 
   it('rejects certainty, a missing direction and an out-of-range horizon', async () => {
@@ -698,7 +921,8 @@ describe('Probability Seal', () => {
     ])
       expect((await sealIt(GUEST_A, t.id, body)).status).toBe(400);
     // Nothing was sealed by the failed attempts.
-    const after = (await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json()).thesis;
+    const after = (await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json())
+      .thesis;
     expect(after.status).toBe('evidence_reviewed');
   });
 
@@ -708,7 +932,11 @@ describe('Probability Seal', () => {
     const t = await reviewedThesis(GUEST_A);
     delete process.env.QWEN_BASE_URL;
     delete process.env.QWEN_API_KEY;
-    const made = await sealIt(GUEST_A, t.id, { direction: 'up', probability: 0.6, horizonDays: 7 });
+    const made = await sealIt(GUEST_A, t.id, {
+      direction: 'up',
+      probability: 0.6,
+      horizonDays: 7,
+    });
     expect(made.status).toBe(201);
     const view = (await made.json()).thesis;
     expect(view.seal.systemMethod).toBe('base_rate');
@@ -722,9 +950,14 @@ describe('Probability Seal', () => {
     const t = await reviewedThesis(GUEST_A);
     delete process.env.QWEN_BASE_URL;
     delete process.env.QWEN_API_KEY;
-    const made = await sealIt(GUEST_A, t.id, { direction: 'up', probability: 0.6, horizonDays: 15 });
+    const made = await sealIt(GUEST_A, t.id, {
+      direction: 'up',
+      probability: 0.6,
+      horizonDays: 15,
+    });
     expect(made.status).toBe(503);
-    const after = (await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json()).thesis;
+    const after = (await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json())
+      .thesis;
     expect(after.status).toBe('evidence_reviewed');
     expect(after.seal).toBeNull();
   });
@@ -734,8 +967,18 @@ describe('Probability Seal', () => {
     seedMarket();
     const t = await reviewedThesis(GUEST_A);
     qwenReplies(0.6);
-    expect((await sealIt(GUEST_B, t.id, { direction: 'up', probability: 0.6, horizonDays: 7 })).status).toBe(404);
-    const stranger = await (await calibrationRoute.GET(req('GET', GUEST_B, undefined, '/c'))).json();
+    expect(
+      (
+        await sealIt(GUEST_B, t.id, {
+          direction: 'up',
+          probability: 0.6,
+          horizonDays: 7,
+        })
+      ).status,
+    ).toBe(404);
+    const stranger = await (
+      await calibrationRoute.GET(req('GET', GUEST_B, undefined, '/c'))
+    ).json();
     expect(stranger.entries).toHaveLength(0);
   });
 
@@ -744,12 +987,22 @@ describe('Probability Seal', () => {
     const rows = seedMarket();
     const t = await reviewedThesis(GUEST_A);
     qwenReplies(0.6);
-    const made = await sealIt(GUEST_A, t.id, { direction: 'up', probability: 0.7, horizonDays: 7 });
+    const made = await sealIt(GUEST_A, t.id, {
+      direction: 'up',
+      probability: 0.7,
+      horizonDays: 7,
+    });
     const sealView = (await made.json()).thesis.seal;
     const resolvesAt = new Date(sealView.resolvesAt);
 
     // Too early: nothing is judged.
-    expect(await resolveDueSeals(db as never, `g:${GUEST_A}`, new Date(resolvesAt.getTime() - 1000))).toBe(0);
+    expect(
+      await resolveDueSeals(
+        db as never,
+        `g:${GUEST_A}`,
+        new Date(resolvesAt.getTime() - 1000),
+      ),
+    ).toBe(0);
 
     // Bitget now returns the resolving day: the close is 210, above the 199 reference.
     const resolvingDay = candle(210, resolvesAt.getTime() - DAY);
@@ -759,14 +1012,18 @@ describe('Probability Seal', () => {
     // Judged once: a second pass changes nothing.
     expect(await resolveDueSeals(db as never, `g:${GUEST_A}`, after)).toBe(0);
 
-    const detail = (await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json()).thesis.seal;
+    const detail = (
+      await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json()
+    ).thesis.seal;
     expect(detail.status).toBe('resolved');
     expect(detail.outcome).toBe(true);
     expect(detail.resolvedPrice).toBe(210);
     expect(Math.abs(detail.userBrier - 0.09) < 1e-9).toBe(true);
     expect(Math.abs(detail.systemBrier - 0.16) < 1e-9).toBe(true);
 
-    const ledger = await (await calibrationRoute.GET(req('GET', GUEST_A, undefined, '/c'))).json();
+    const ledger = await (
+      await calibrationRoute.GET(req('GET', GUEST_A, undefined, '/c'))
+    ).json();
     expect(ledger.calibration.resolved).toBe(1);
     expect(ledger.calibration.better).toBe('you');
     expect(ledger.entries).toHaveLength(1);
@@ -777,11 +1034,24 @@ describe('Probability Seal', () => {
     const rows = seedMarket();
     const t = await reviewedThesis(GUEST_A);
     qwenReplies(0.3);
-    const made = await sealIt(GUEST_A, t.id, { direction: 'down', probability: 0.9, horizonDays: 3 });
+    const made = await sealIt(GUEST_A, t.id, {
+      direction: 'down',
+      probability: 0.9,
+      horizonDays: 3,
+    });
     const resolvesAt = new Date((await made.json()).thesis.seal.resolvesAt);
-    cache('RAAPLUSDT:candles:1day:100', [...rows, candle(205, resolvesAt.getTime() - DAY)]);
-    await resolveDueSeals(db as never, `g:${GUEST_A}`, new Date(resolvesAt.getTime() + 1000));
-    const detail = (await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json()).thesis.seal;
+    cache('RAAPLUSDT:candles:1day:100', [
+      ...rows,
+      candle(205, resolvesAt.getTime() - DAY),
+    ]);
+    await resolveDueSeals(
+      db as never,
+      `g:${GUEST_A}`,
+      new Date(resolvesAt.getTime() + 1000),
+    );
+    const detail = (
+      await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json()
+    ).thesis.seal;
     expect(detail.outcome).toBe(false);
     expect(Math.abs(detail.userBrier - 0.81) < 1e-9).toBe(true);
     expect(Math.abs(detail.systemBrier - 0.09) < 1e-9).toBe(true);
@@ -803,7 +1073,11 @@ describe('Balance Scale', () => {
     baseVolume: 1,
     quoteVolume: 1,
   });
-  const cache = (instrumentId: string, key: string, rows: ReturnType<typeof candle>[]) =>
+  const cache = (
+    instrumentId: string,
+    key: string,
+    rows: ReturnType<typeof candle>[],
+  ) =>
     db.__addObservation({
       cacheKey: `${instrumentId}:candles:${key}`,
       fetchedAt: new Date(),
@@ -821,8 +1095,15 @@ describe('Balance Scale', () => {
     });
   const closes = (i: number) => 100 + i + 3 * Math.sin(i / 2);
   function seedStock(instrumentId: string, ticker: string, n = 100) {
-    db.__addAsset({ providerInstrumentId: instrumentId, symbol: instrumentId, underlyingTicker: ticker, weekendTradable: 'yes' });
-    const rows = Array.from({ length: n }, (_, i) => candle(closes(i), todayStart() - (n - 1 - i) * DAY));
+    db.__addAsset({
+      providerInstrumentId: instrumentId,
+      symbol: instrumentId,
+      underlyingTicker: ticker,
+      weekendTradable: 'yes',
+    });
+    const rows = Array.from({ length: n }, (_, i) =>
+      candle(closes(i), todayStart() - (n - 1 - i) * DAY),
+    );
     cache(instrumentId, '1day:100', rows);
     cache(instrumentId, '1day:30', rows.slice(-30));
     cache(instrumentId, '1hour:3', [candle(closes(n - 1), Date.now())]);
@@ -831,20 +1112,55 @@ describe('Balance Scale', () => {
   async function sealedThesis(guest: string) {
     const t = await newThesis(guest, { symbol: 'AAPL' });
     await addOwnPaths(guest, t.id, 3);
-    await advance.POST(req('POST', guest, { to: 'failures_resolved' }, `/api/saved-theses/${t.id}/advance`), ctx(t.id));
-    const made = await (await evidenceRefresh.POST(req('POST', guest, undefined, '/e'), ctx(t.id))).json();
+    await advance.POST(
+      req(
+        'POST',
+        guest,
+        { to: 'failures_resolved' },
+        `/api/saved-theses/${t.id}/advance`,
+      ),
+      ctx(t.id),
+    );
+    const made = await (
+      await evidenceRefresh.POST(req('POST', guest, undefined, '/e'), ctx(t.id))
+    ).json();
     for (const c of made.thesis.claims as { id: string; state: string }[])
       if (c.state === 'inferred')
-        await evidenceOne.PATCH(req('PATCH', guest, { acknowledge: true }, '/x'), claimCtx(t.id, c.id));
-    await advance.POST(req('POST', guest, { to: 'evidence_reviewed' }, `/api/saved-theses/${t.id}/advance`), ctx(t.id));
+        await evidenceOne.PATCH(
+          req('PATCH', guest, { acknowledge: true }, '/x'),
+          claimCtx(t.id, c.id),
+        );
+    await advance.POST(
+      req(
+        'POST',
+        guest,
+        { to: 'evidence_reviewed' },
+        `/api/saved-theses/${t.id}/advance`,
+      ),
+      ctx(t.id),
+    );
     process.env.QWEN_BASE_URL = 'http://qwen.test';
     process.env.QWEN_API_KEY = 'test';
     globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ choices: [{ message: { content: '{"probability":0.6,"rationale":"Mixed."}' } }] }), {
-        status: 200,
-      })) as typeof fetch;
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: { content: '{"probability":0.6,"rationale":"Mixed."}' },
+            },
+          ],
+        }),
+        {
+          status: 200,
+        },
+      )) as typeof fetch;
     const sealed = await seal.POST(
-      req('POST', guest, { direction: 'up', probability: 0.6, horizonDays: 7 }, '/s'),
+      req(
+        'POST',
+        guest,
+        { direction: 'up', probability: 0.6, horizonDays: 7 },
+        '/s',
+      ),
       ctx(t.id),
     );
     expect(sealed.status).toBe(201);
@@ -854,9 +1170,15 @@ describe('Balance Scale', () => {
   const putPortfolio = (guest: string, body: unknown) =>
     portfolioRoute.PUT(req('PUT', guest, body, '/api/portfolio'));
   const lock = (guest: string, id: string, body: Record<string, unknown>) =>
-    lockRoute.POST(req('POST', guest, body, `/api/saved-theses/${id}/lock`), ctx(id));
+    lockRoute.POST(
+      req('POST', guest, body, `/api/saved-theses/${id}/lock`),
+      ctx(id),
+    );
   const risk = (guest: string, id: string, body: Record<string, unknown>) =>
-    riskRoute.POST(req('POST', guest, body, `/api/saved-theses/${id}/risk`), ctx(id));
+    riskRoute.POST(
+      req('POST', guest, body, `/api/saved-theses/${id}/risk`),
+      ctx(id),
+    );
   const cash = { totalUsd: 10_000 };
 
   it('is closed until the thesis is sealed', async () => {
@@ -870,11 +1192,29 @@ describe('Balance Scale', () => {
   it('stores your typed portfolio privately and checks it', async () => {
     resetAll();
     expect((await putPortfolio(GUEST_A, { totalUsd: 0 })).status).toBe(400);
-    expect((await putPortfolio(GUEST_A, { totalUsd: 1000, holdings: [{ symbol: 'AAPL', valueUsd: 5000 }] })).status).toBe(400);
-    expect((await putPortfolio(GUEST_A, { ...cash, holdings: [{ symbol: 'msft', valueUsd: 2000 }] })).status).toBe(200);
-    const mine = await (await portfolioRoute.GET(req('GET', GUEST_A, undefined, '/api/portfolio'))).json();
+    expect(
+      (
+        await putPortfolio(GUEST_A, {
+          totalUsd: 1000,
+          holdings: [{ symbol: 'AAPL', valueUsd: 5000 }],
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await putPortfolio(GUEST_A, {
+          ...cash,
+          holdings: [{ symbol: 'msft', valueUsd: 2000 }],
+        })
+      ).status,
+    ).toBe(200);
+    const mine = await (
+      await portfolioRoute.GET(req('GET', GUEST_A, undefined, '/api/portfolio'))
+    ).json();
     expect(mine.portfolio.holdings[0].symbol).toBe('MSFT');
-    const theirs = await (await portfolioRoute.GET(req('GET', GUEST_B, undefined, '/api/portfolio'))).json();
+    const theirs = await (
+      await portfolioRoute.GET(req('GET', GUEST_B, undefined, '/api/portfolio'))
+    ).json();
     expect(theirs.portfolio).toBeNull();
   });
 
@@ -892,7 +1232,9 @@ describe('Balance Scale', () => {
     seedStock('RAAPLUSDT', 'AAPL');
     const t = await sealedThesis(GUEST_A);
     await putPortfolio(GUEST_A, cash);
-    const preview = await (await risk(GUEST_A, t.id, { plannedUsd: 500 })).json();
+    const preview = await (
+      await risk(GUEST_A, t.id, { plannedUsd: 500 })
+    ).json();
     expect(preview.report.metrics).toHaveLength(4);
     expect(preview.report.verdict).toBe('clear');
 
@@ -904,7 +1246,9 @@ describe('Balance Scale', () => {
     expect(view.lock.metrics).toHaveLength(4);
 
     expect((await lock(GUEST_A, t.id, { plannedUsd: 500 })).status).toBe(409);
-    expect((await one.DELETE(req('DELETE', GUEST_A), ctx(t.id))).status).toBe(409);
+    expect((await one.DELETE(req('DELETE', GUEST_A), ctx(t.id))).status).toBe(
+      409,
+    );
   });
 
   it('makes you acknowledge each soft warning by name', async () => {
@@ -915,9 +1259,15 @@ describe('Balance Scale', () => {
     const without = await lock(GUEST_A, t.id, { plannedUsd: 1200 });
     expect(without.status).toBe(409);
     expect((await without.json()).error).toContain('concentration');
-    const wrong = await lock(GUEST_A, t.id, { plannedUsd: 1200, acknowledged: ['gap'] });
+    const wrong = await lock(GUEST_A, t.id, {
+      plannedUsd: 1200,
+      acknowledged: ['gap'],
+    });
     expect(wrong.status).toBe(409);
-    const ok = await lock(GUEST_A, t.id, { plannedUsd: 1200, acknowledged: ['concentration'] });
+    const ok = await lock(GUEST_A, t.id, {
+      plannedUsd: 1200,
+      acknowledged: ['concentration'],
+    });
     expect(ok.status).toBe(201);
     expect((await ok.json()).thesis.lock.verdict).toBe('warn');
   });
@@ -928,11 +1278,25 @@ describe('Balance Scale', () => {
     const t = await sealedThesis(GUEST_A);
     await putPortfolio(GUEST_A, cash);
     expect((await lock(GUEST_A, t.id, { plannedUsd: 3000 })).status).toBe(409);
-    expect((await lock(GUEST_A, t.id, { plannedUsd: 3000, acknowledged: ['concentration'] })).status).toBe(409);
     expect(
-      (await lock(GUEST_A, t.id, { plannedUsd: 3000, acknowledged: ['concentration'], overrideReason: 'too short' })).status,
+      (
+        await lock(GUEST_A, t.id, {
+          plannedUsd: 3000,
+          acknowledged: ['concentration'],
+        })
+      ).status,
     ).toBe(409);
-    const after = (await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json()).thesis;
+    expect(
+      (
+        await lock(GUEST_A, t.id, {
+          plannedUsd: 3000,
+          acknowledged: ['concentration'],
+          overrideReason: 'too short',
+        })
+      ).status,
+    ).toBe(409);
+    const after = (await (await one.GET(req('GET', GUEST_A), ctx(t.id))).json())
+      .thesis;
     expect(after.status).toBe('sealed');
     const served = await lock(GUEST_A, t.id, {
       plannedUsd: 3000,
@@ -952,10 +1316,17 @@ describe('Balance Scale', () => {
     const t = await sealedThesis(GUEST_A);
     await putPortfolio(GUEST_A, {
       totalUsd: 10_000,
-      holdings: [{ symbol: 'MSFT', valueUsd: 5000 }, { symbol: 'PRIV', valueUsd: 500 }],
+      holdings: [
+        { symbol: 'MSFT', valueUsd: 5000 },
+        { symbol: 'PRIV', valueUsd: 500 },
+      ],
     });
-    const report = (await (await risk(GUEST_A, t.id, { plannedUsd: 500 })).json()).report;
-    const corr = report.metrics.find((m: { key: string }) => m.key === 'correlation');
+    const report = (
+      await (await risk(GUEST_A, t.id, { plannedUsd: 500 })).json()
+    ).report;
+    const corr = report.metrics.find(
+      (m: { key: string }) => m.key === 'correlation',
+    );
     expect(corr.level).toBe('block');
     expect(corr.message).toContain('PRIV');
   });

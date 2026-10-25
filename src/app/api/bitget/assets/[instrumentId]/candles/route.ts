@@ -12,16 +12,33 @@ export async function GET(request: Request, context: RouteContext) {
   const url = new URL(request.url);
   const granularity = url.searchParams.get('granularity') ?? '1day';
   const limit = Number(url.searchParams.get('limit') ?? 3);
-  if (!instrumentId || instrumentId.length > 100 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
-    return NextResponse.json({ error: 'Invalid candle parameters.' }, { status: 400 });
+  if (
+    !instrumentId ||
+    instrumentId.length > 100 ||
+    !Number.isInteger(limit) ||
+    limit < 1 ||
+    limit > 100
+  ) {
+    return NextResponse.json(
+      { error: 'Invalid candle parameters.' },
+      { status: 400 },
+    );
   }
   try {
     const result = await getCandles({ instrumentId, granularity, limit });
-    return NextResponse.json(result, { status: result.status === 'error' ? 502 : 200 });
+    return NextResponse.json(result, {
+      status: result.status === 'error' ? 502 : 200,
+    });
   } catch (error) {
     if (error instanceof BitgetApiError) {
-      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status === 502 ? 502 : error.status });
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status === 502 ? 502 : error.status },
+      );
     }
-    return NextResponse.json({ error: 'Candle retrieval is temporarily unavailable.' }, { status: 503 });
+    return NextResponse.json(
+      { error: 'Candle retrieval is temporarily unavailable.' },
+      { status: 503 },
+    );
   }
 }

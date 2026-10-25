@@ -38,7 +38,9 @@ export function SourcedNumber({
   label?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [place, setPlace] = useState<{ top: number; left: number } | null>(null);
+  const [place, setPlace] = useState<{ top: number; left: number } | null>(
+    null,
+  );
   const button = useRef<HTMLButtonElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -47,10 +49,16 @@ export function SourcedNumber({
     if (!open || !button.current) return;
     const rect = button.current.getBoundingClientRect();
     const width = Math.min(320, window.innerWidth - 16);
-    const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
+    const left = Math.min(
+      Math.max(8, rect.left),
+      window.innerWidth - width - 8,
+    );
     // Open above when there is more room there than below.
     const below = window.innerHeight - rect.bottom;
-    const top = below < 220 && rect.top > below ? Math.max(8, rect.top - 6 - 200) : rect.bottom + 6;
+    const top =
+      below < 220 && rect.top > below
+        ? Math.max(8, rect.top - 6 - 200)
+        : rect.bottom + 6;
     setPlace({ top, left });
   }, [open]);
 
@@ -65,7 +73,8 @@ export function SourcedNumber({
     };
     const onPointer = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (card.current?.contains(target) || button.current?.contains(target)) return;
+      if (card.current?.contains(target) || button.current?.contains(target))
+        return;
       close();
     };
     document.addEventListener('keydown', onKey);
@@ -112,10 +121,16 @@ export function SourcedNumber({
             className="srcnum-card"
             data-state={note.state}
             data-srcnum-open="true"
-            style={{ top: place?.top ?? 0, left: place?.left ?? 0, visibility: place ? 'visible' : 'hidden' }}
+            style={{
+              top: place?.top ?? 0,
+              left: place?.left ?? 0,
+              visibility: place ? 'visible' : 'hidden',
+            }}
           >
             <p className="srcnum-chip" data-state={note.state}>
-              {note.state === 'observed' ? 'Observed fact' : 'Computed by this app'}
+              {note.state === 'observed'
+                ? 'Observed fact'
+                : 'Computed by this app'}
             </p>
             <p className="srcnum-how">{note.how}</p>
             <dl>

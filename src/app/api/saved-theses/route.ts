@@ -59,12 +59,17 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   if (symbol && !SYMBOL.test(symbol))
-    return Response.json({ error: 'That is not a stock symbol.' }, { status: 400 });
+    return Response.json(
+      { error: 'That is not a stock symbol.' },
+      { status: 400 },
+    );
 
   const count = await db.thesis.count({ where: { ownerKey: owner.key } });
   if (count >= MAX_THESES_PER_OWNER)
     return Response.json(
-      { error: `You can keep ${MAX_THESES_PER_OWNER} theses. Delete one first.` },
+      {
+        error: `You can keep ${MAX_THESES_PER_OWNER} theses. Delete one first.`,
+      },
       { status: 409 },
     );
 

@@ -11,7 +11,9 @@ describe('Ripple Room link', () => {
   });
 
   it('fills in the thesis stocks', () => {
-    const url = new URL(rippleRoomUrl(THESES[1], 'https://ripple.example.com')!);
+    const url = new URL(
+      rippleRoomUrl(THESES[1], 'https://ripple.example.com')!,
+    );
     expect(url.searchParams.get('primary')).toBe('TSLA');
     expect(url.searchParams.get('others')).toBe('META,NFLX,COST');
   });

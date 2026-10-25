@@ -22,7 +22,10 @@ export async function POST(request: Request, { params }: Ctx) {
   const owner = await resolveOwner(db, request);
   const thesis = await loadOwned(db, owner, thesisId);
   if (!thesis)
-    return Response.json({ error: 'Thesis not found.' }, { status: 404, headers: NO_STORE });
+    return Response.json(
+      { error: 'Thesis not found.' },
+      { status: 404, headers: NO_STORE },
+    );
   if (!pathsEditable(thesis.status as ThesisStatus))
     return Response.json(
       { error: 'The Failure Table is signed off and cannot change.' },
@@ -45,9 +48,13 @@ export async function POST(request: Request, { params }: Ctx) {
     hasInstrument: thesis.instrumentId !== null,
   });
   if (!result.ok)
-    return Response.json({ error: result.errors[0], errors: result.errors }, { status: 400, headers: NO_STORE });
+    return Response.json(
+      { error: result.errors[0], errors: result.errors },
+      { status: 400, headers: NO_STORE },
+    );
 
-  const ordinal = thesis.failurePaths.reduce((m, p) => Math.max(m, p.ordinal), 0) + 1;
+  const ordinal =
+    thesis.failurePaths.reduce((m, p) => Math.max(m, p.ordinal), 0) + 1;
   const f = result.value;
   const created = await db.failurePath.create({
     data: {
@@ -66,7 +73,10 @@ export async function POST(request: Request, { params }: Ctx) {
     },
   });
   return withOwnerCookie(
-    Response.json({ path: pathView(created) }, { status: 201, headers: NO_STORE }),
+    Response.json(
+      { path: pathView(created) },
+      { status: 201, headers: NO_STORE },
+    ),
     owner,
   );
 }

@@ -95,5 +95,9 @@ body .app-shell[data-station='TeaTable'] .mkt-panel {
 }
 
 /* Source Lock line under Uncle's answers. */
-.iroh-lock { color: var(--jade); }
-.iroh-lock[data-withheld='true'] { color: var(--seal); }
+.iroh-lock {
+  color: var(--jade);
+}
+.iroh-lock[data-withheld='true'] {
+  color: var(--seal);
+}

@@ -522,13 +522,15 @@ export default function TeaRoomShell({
 
             <div className="status-popup" id="status-popup" role="tooltip">
               <div className="status-row">
-  <span className="status-label">Thesis</span>
-  <span className="status-value live">Bitget · read-only</span>
-</div>
-<div className="status-row">
-  <span className="status-label">Uncle</span>
-  <span className="status-value live">Bitget Reality · research desk</span>
-</div>
+                <span className="status-label">Thesis</span>
+                <span className="status-value live">Bitget · read-only</span>
+              </div>
+              <div className="status-row">
+                <span className="status-label">Uncle</span>
+                <span className="status-value live">
+                  Bitget Reality · research desk
+                </span>
+              </div>
             </div>
           </div>
 
@@ -630,7 +632,6 @@ export default function TeaRoomShell({
               </span>
             </button>
           )}
-
         </section>
 
         <Suspense fallback={null}>

@@ -1,5 +1,12 @@
 import 'server-only';
-import type { Claim, FailurePath, Lock, PrismaClient, Seal, Thesis } from '@prisma/client';
+import type {
+  Claim,
+  FailurePath,
+  Lock,
+  PrismaClient,
+  Seal,
+  Thesis,
+} from '@prisma/client';
 import type { Owner } from './owner';
 import { evidenceStatus, type ClaimState, type SourceKind } from './evidence';
 import {
@@ -93,7 +100,7 @@ export function sealView(seal: Seal) {
 }
 
 export function lockView(lock: Lock) {
-  const parse = <T,>(text: string, fallback: T): T => {
+  const parse = <T>(text: string, fallback: T): T => {
     try {
       return JSON.parse(text) as T;
     } catch {
@@ -145,7 +152,6 @@ export const fieldsOf = (path: FailurePath): FailurePathFields => ({
   triggerLevel: path.triggerLevel,
   triggerNote: path.triggerNote,
 });
-
 
 /** A thesis only its owner may see. Anyone else gets null, the same as a missing id. */
 export function loadOwned(db: PrismaClient, owner: Owner, thesisId: string) {

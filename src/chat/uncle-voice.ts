@@ -18,7 +18,10 @@ export function sanitizePriorMessages(raw: unknown) {
   return raw.slice(-MAX_PRIOR_MESSAGES).flatMap((item) => {
     if (!item || typeof item !== 'object') return [];
     const { role, content } = item as { role?: unknown; content?: unknown };
-    if ((role !== 'user' && role !== 'assistant') || typeof content !== 'string')
+    if (
+      (role !== 'user' && role !== 'assistant') ||
+      typeof content !== 'string'
+    )
       return [];
     const text = content.trim().slice(0, MAX_PRIOR_CHARS);
     return text ? [{ role, content: text, status: 'complete' }] : [];
@@ -28,5 +31,7 @@ export function sanitizePriorMessages(raw: unknown) {
 /** The question block for the user prompt, with earlier turns when there are any. */
 export function questionBlock(question: string, raw: unknown) {
   const withContext = contextualQuestion(question, sanitizePriorMessages(raw));
-  return withContext === question ? `User question: "${question}"` : withContext;
+  return withContext === question
+    ? `User question: "${question}"`
+    : withContext;
 }

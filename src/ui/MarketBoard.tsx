@@ -1,6 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import type { MarketBoard as MarketBoardData, MarketRow } from '../thesis/types';
+import type {
+  MarketBoard as MarketBoardData,
+  MarketRow,
+} from '../thesis/types';
 import {
   formatPct,
   formatPrice,
@@ -20,7 +23,8 @@ const dir = (value: number | null) =>
   value === null ? 'none' : value > 0 ? 'up' : value < 0 ? 'down' : 'flat';
 
 function Spark({ closes, tone }: { closes: number[]; tone: string }) {
-  if (closes.length < 2) return <span className="mkt-spark" aria-hidden="true" />;
+  if (closes.length < 2)
+    return <span className="mkt-spark" aria-hidden="true" />;
   const min = Math.min(...closes);
   const span = Math.max(...closes) - min || 1;
   const points = closes
@@ -51,7 +55,9 @@ function Row({ row }: { row: MarketRow }) {
         <span className="mkt-name">{row.name}</span>
         <span className="mkt-missing srclock-withheld">
           Withheld:{' '}
-          {row.status === 'error' ? 'Bitget did not respond' : 'not in the catalog'}
+          {row.status === 'error'
+            ? 'Bitget did not respond'
+            : 'not in the catalog'}
         </span>
       </li>
     );
@@ -62,7 +68,11 @@ function Row({ row }: { row: MarketRow }) {
       <span className="mkt-name">{row.name}</span>
       <Spark closes={row.closes} tone={dir(row.weekChangePct)} />
       <span className="mkt-price">
-        <SourcedNumber source={row.ref} kind="close" label={`${row.symbol} last close`}>
+        <SourcedNumber
+          source={row.ref}
+          kind="close"
+          label={`${row.symbol} last close`}
+        >
           {formatPrice(row.lastClose)}
         </SourcedNumber>
       </span>
@@ -70,13 +80,24 @@ function Row({ row }: { row: MarketRow }) {
         <span className="mkt-glyph" aria-hidden="true">
           {tone === 'up' ? '▲' : tone === 'down' ? '▼' : '•'}
         </span>
-        <SourcedNumber source={row.ref} kind="day_change" label={`${row.symbol} one day change`}>
+        <SourcedNumber
+          source={row.ref}
+          kind="day_change"
+          label={`${row.symbol} one day change`}
+        >
           {formatPct(row.dayChangePct, true)}
         </SourcedNumber>
         <small>1D</small>
       </span>
-      <span className="mkt-move mkt-move--week" data-dir={dir(row.weekChangePct)}>
-        <SourcedNumber source={row.ref} kind="window_change" label={`${row.symbol} seven day change`}>
+      <span
+        className="mkt-move mkt-move--week"
+        data-dir={dir(row.weekChangePct)}
+      >
+        <SourcedNumber
+          source={row.ref}
+          kind="window_change"
+          label={`${row.symbol} seven day change`}
+        >
           {formatPct(row.weekChangePct, true)}
         </SourcedNumber>
         <small>7D</small>
@@ -97,7 +118,10 @@ export function MarketBoard({ modelUrl }: { modelUrl: string }) {
   useEffect(() => {
     const controller = new AbortController();
     setState({ status: 'loading' });
-    fetch('/api/bitget/market', { cache: 'no-store', signal: controller.signal })
+    fetch('/api/bitget/market', {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
       .then(async (response) => {
         if (!response.ok)
           return setState({
@@ -125,8 +149,8 @@ export function MarketBoard({ modelUrl }: { modelUrl: string }) {
         <p className="eyebrow">Observatorium · Bitget Reality</p>
         <h2 className="mkt-title">Major stocks</h2>
         <p className="mkt-lede">
-          The S&amp;P 500 benchmark and the largest US names, from Bitget
-          daily candles. The last candle is today so far.
+          The S&amp;P 500 benchmark and the largest US names, from Bitget daily
+          candles. The last candle is today so far.
         </p>
       </header>
 
@@ -161,7 +185,11 @@ export function MarketBoard({ modelUrl }: { modelUrl: string }) {
             <div>
               <dt>Rising today</dt>
               <dd>
-                <SourcedNumber source={state.board.ref} kind="count" label="stocks rising today">
+                <SourcedNumber
+                  source={state.board.ref}
+                  kind="count"
+                  label="stocks rising today"
+                >
                   {state.board.summary.risingToday}
                 </SourcedNumber>
                 <small> of {state.board.summary.dayMeasured}</small>
@@ -170,7 +198,11 @@ export function MarketBoard({ modelUrl }: { modelUrl: string }) {
             <div>
               <dt>Average today</dt>
               <dd data-dir={dir(state.board.summary.avgDayPct)}>
-                <SourcedNumber source={state.board.ref} kind="average" label="average move today">
+                <SourcedNumber
+                  source={state.board.ref}
+                  kind="average"
+                  label="average move today"
+                >
                   {formatPct(state.board.summary.avgDayPct, true)}
                 </SourcedNumber>
               </dd>
@@ -178,7 +210,11 @@ export function MarketBoard({ modelUrl }: { modelUrl: string }) {
             <div>
               <dt>Average 7 days</dt>
               <dd data-dir={dir(state.board.summary.avgWeekPct)}>
-                <SourcedNumber source={state.board.ref} kind="average" label="average move over seven days">
+                <SourcedNumber
+                  source={state.board.ref}
+                  kind="average"
+                  label="average move over seven days"
+                >
                   {formatPct(state.board.summary.avgWeekPct, true)}
                 </SourcedNumber>
               </dd>
@@ -190,7 +226,12 @@ export function MarketBoard({ modelUrl }: { modelUrl: string }) {
                   <span data-dir="up">
                     {state.board.summary.leader.symbol}{' '}
                     <SourcedNumber
-                      source={state.board.rows.find((r) => r.symbol === state.board.summary.leader?.symbol)?.ref}
+                      source={
+                        state.board.rows.find(
+                          (r) =>
+                            r.symbol === state.board.summary.leader?.symbol,
+                        )?.ref
+                      }
                       kind="day_change"
                       label="leader one day change"
                     >
@@ -200,11 +241,19 @@ export function MarketBoard({ modelUrl }: { modelUrl: string }) {
                   <span data-dir="down">
                     {state.board.summary.laggard.symbol}{' '}
                     <SourcedNumber
-                      source={state.board.rows.find((r) => r.symbol === state.board.summary.laggard?.symbol)?.ref}
+                      source={
+                        state.board.rows.find(
+                          (r) =>
+                            r.symbol === state.board.summary.laggard?.symbol,
+                        )?.ref
+                      }
                       kind="day_change"
                       label="laggard one day change"
                     >
-                      {formatPct(state.board.summary.laggard.dayChangePct, true)}
+                      {formatPct(
+                        state.board.summary.laggard.dayChangePct,
+                        true,
+                      )}
                     </SourcedNumber>
                   </span>
                 </dd>

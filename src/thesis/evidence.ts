@@ -243,17 +243,22 @@ export function validateUserClaim(input: unknown, now: Date): ClaimValidation {
   const label = typeof raw.label === 'string' ? raw.label.trim() : '';
   if (label.length < 3 || label.length > 120)
     errors.push('Name the claim in 3 to 120 characters.');
-  const valueText = typeof raw.valueText === 'string' ? raw.valueText.trim() : '';
+  const valueText =
+    typeof raw.valueText === 'string' ? raw.valueText.trim() : '';
   if (valueText.length < 1 || valueText.length > 200)
     errors.push('State the figure or fact in 1 to 200 characters.');
 
   const kind = USER_SOURCE_KINDS.find((k) => k === raw.sourceKind);
   if (!kind)
-    errors.push('The source must be an SEC filing, a company release or a central bank statement.');
+    errors.push(
+      'The source must be an SEC filing, a company release or a central bank statement.',
+    );
 
   let url: URL | null = null;
   try {
-    url = new URL(typeof raw.sourceUrl === 'string' ? raw.sourceUrl.trim() : '');
+    url = new URL(
+      typeof raw.sourceUrl === 'string' ? raw.sourceUrl.trim() : '',
+    );
     if (url.protocol !== 'https:') {
       errors.push('The source link must start with https://.');
       url = null;
@@ -264,7 +269,8 @@ export function validateUserClaim(input: unknown, now: Date): ClaimValidation {
 
   const observedMs =
     typeof raw.observedAt === 'string' ? Date.parse(raw.observedAt) : NaN;
-  if (!Number.isFinite(observedMs)) errors.push('Give the date the source was published.');
+  if (!Number.isFinite(observedMs))
+    errors.push('Give the date the source was published.');
   else if (observedMs > now.getTime())
     errors.push('The source date cannot be in the future.');
   else if (now.getTime() - observedMs > MAX_AGE_YEARS * 365 * 86_400_000)
@@ -279,7 +285,9 @@ export function validateUserClaim(input: unknown, now: Date): ClaimValidation {
       const host = url.hostname.toLowerCase();
       const onPrimary = hosts.some((h) => host === h || host.endsWith(`.${h}`));
       if (!onPrimary)
-        errors.push(`A ${kind.replace('_', ' ')} must link to ${hosts.join(', ')}.`);
+        errors.push(
+          `A ${kind.replace('_', ' ')} must link to ${hosts.join(', ')}.`,
+        );
       else verify = true;
     } else {
       note =
@@ -342,7 +350,8 @@ export function evidenceStatus(
       c.origin === 'system' &&
       now.getTime() - Date.parse(c.fetchedAt) > EVIDENCE_MAX_AGE_MS,
   ).length;
-  if (stale > 0) blockers.push('The Bitget evidence is more than a day old. Refresh it.');
+  if (stale > 0)
+    blockers.push('The Bitget evidence is more than a day old. Refresh it.');
   return {
     complete: blockers.length === 0,
     observed,
@@ -354,4 +363,5 @@ export function evidenceStatus(
 }
 
 /** Can the evidence still change? Frozen once the Evidence Shelf is signed off. */
-export const evidenceEditable = (status: string) => status === 'failures_resolved';
+export const evidenceEditable = (status: string) =>
+  status === 'failures_resolved';

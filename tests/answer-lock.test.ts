@@ -1,10 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { WITHHELD, evidenceNumbers, lockAnswer } from '../src/thesis/answer-lock';
+import {
+  WITHHELD,
+  evidenceNumbers,
+  lockAnswer,
+} from '../src/thesis/answer-lock';
 
 const evidence = {
   stocks: [
-    { name: 'NVDA', spotTicker: { last: 201.37 }, week: { changePct: -2.46 }, computed: { change24hPct: 1.2 } },
-    { name: 'AAPL', week: { changePct: 3.04 }, timestamp: '2026-10-24T12:00:00Z' },
+    {
+      name: 'NVDA',
+      spotTicker: { last: 201.37 },
+      week: { changePct: -2.46 },
+      computed: { change24hPct: 1.2 },
+    },
+    {
+      name: 'AAPL',
+      week: { changePct: 3.04 },
+      timestamp: '2026-10-24T12:00:00Z',
+    },
   ],
   history: { assets: { NVDA: { p10Pct: -6.8, worstPct: -11.52 } } },
   marketCap: 4.6e12,
@@ -15,7 +28,9 @@ describe('evidenceNumbers', () => {
     const numbers = evidenceNumbers(evidence);
     expect(numbers.includes(2.46)).toBe(true);
     expect(numbers.includes(201.37)).toBe(true);
-    expect(evidenceNumbers({ a: '5.2% up, 1,234 shares' }).includes(1234)).toBe(true);
+    expect(evidenceNumbers({ a: '5.2% up, 1,234 shares' }).includes(1234)).toBe(
+      true,
+    );
   });
 });
 
@@ -49,7 +64,10 @@ describe('lockAnswer', () => {
   it('reads magnitude words', () => {
     const ok = lockAnswer('The market value is about $4.6 trillion.', evidence);
     expect(ok.withheld).toEqual([]);
-    const bad = lockAnswer('The market value is about $9.6 trillion.', evidence);
+    const bad = lockAnswer(
+      'The market value is about $9.6 trillion.',
+      evidence,
+    );
     expect(bad.withheld).toEqual(['$9.6 trillion']);
   });
 

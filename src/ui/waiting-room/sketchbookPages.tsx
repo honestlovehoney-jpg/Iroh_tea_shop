@@ -117,9 +117,7 @@ export const SKETCH_PAGES: SketchPage[] = [
         <span className="sb-mark" aria-hidden="true">
           <LotusMark variant="sketch" />
         </span>
-        <p className="sb-kicker">
-          {PROJECT.studio}
-        </p>
+        <p className="sb-kicker">{PROJECT.studio}</p>
         <h1 className="sb-name">{PROJECT.name}</h1>
         <p className="sb-tagline">{PROJECT.tagline}</p>
         <span className="sb-rule" aria-hidden="true" />
@@ -151,9 +149,9 @@ export const SKETCH_PAGES: SketchPage[] = [
         <h2 className="sb-heading">Four stops, one pot of tea.</h2>
         <p className="sb-body">
           Move through the room at your own pace. The counter reads Bitget
-          prices for three stock theses. The shelf shows how much of the
-          catalog is checked. Uncle asks Bitget when you talk to him. The
-          orrery shows how the biggest stocks are moving.
+          prices for three stock theses. The shelf shows how much of the catalog
+          is checked. Uncle asks Bitget when you talk to him. The orrery shows
+          how the biggest stocks are moving.
         </p>
         <Folio n={3} />
       </div>

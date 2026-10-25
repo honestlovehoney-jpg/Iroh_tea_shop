@@ -17,10 +17,16 @@ async function load(request: Request, { params }: Ctx) {
   return { owner, thesis, claim };
 }
 
-const reply = async (owner: Awaited<ReturnType<typeof resolveOwner>>, id: string) => {
+const reply = async (
+  owner: Awaited<ReturnType<typeof resolveOwner>>,
+  id: string,
+) => {
   const fresh = await loadOwned(db, owner, id);
   return withOwnerCookie(
-    Response.json({ thesis: fresh ? thesisView(fresh) : null }, { headers: NO_STORE }),
+    Response.json(
+      { thesis: fresh ? thesisView(fresh) : null },
+      { headers: NO_STORE },
+    ),
     owner,
   );
 };
@@ -31,7 +37,10 @@ export async function PATCH(request: Request, context: Ctx) {
   if (refused) return refused;
   const { owner, thesis, claim } = await load(request, context);
   if (!thesis || !claim)
-    return Response.json({ error: 'Claim not found.' }, { status: 404, headers: NO_STORE });
+    return Response.json(
+      { error: 'Claim not found.' },
+      { status: 404, headers: NO_STORE },
+    );
   if (!evidenceEditable(thesis.status))
     return Response.json(
       { error: 'The Evidence Shelf is signed off and cannot change.' },
@@ -44,13 +53,19 @@ export async function PATCH(request: Request, context: Ctx) {
     return Response.json({ error: 'Send valid JSON.' }, { status: 400 });
   }
   if (body.acknowledge !== true)
-    return Response.json({ error: 'Send {"acknowledge":true}.' }, { status: 400, headers: NO_STORE });
+    return Response.json(
+      { error: 'Send {"acknowledge":true}.' },
+      { status: 400, headers: NO_STORE },
+    );
   if (claim.state !== 'inferred')
     return Response.json(
       { error: 'Only a model inference needs acknowledging.' },
       { status: 409, headers: NO_STORE },
     );
-  await db.claim.update({ where: { id: claim.id }, data: { acknowledged: true } });
+  await db.claim.update({
+    where: { id: claim.id },
+    data: { acknowledged: true },
+  });
   return reply(owner, thesis.id);
 }
 
@@ -60,7 +75,10 @@ export async function DELETE(request: Request, context: Ctx) {
   if (refused) return refused;
   const { owner, thesis, claim } = await load(request, context);
   if (!thesis || !claim)
-    return Response.json({ error: 'Claim not found.' }, { status: 404, headers: NO_STORE });
+    return Response.json(
+      { error: 'Claim not found.' },
+      { status: 404, headers: NO_STORE },
+    );
   if (!evidenceEditable(thesis.status))
     return Response.json(
       { error: 'The Evidence Shelf is signed off and cannot change.' },

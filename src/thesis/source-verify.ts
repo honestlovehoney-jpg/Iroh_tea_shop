@@ -60,10 +60,23 @@ export interface Verification {
 const EXCERPT_RADIUS = 110;
 /** How far from the figure a word of the claim's name may sit. */
 const CONTEXT_RADIUS = 400;
-const STOP = new Set(['the', 'and', 'for', 'with', 'from', 'that', 'this', 'total', 'were', 'was']);
+const STOP = new Set([
+  'the',
+  'and',
+  'for',
+  'with',
+  'from',
+  'that',
+  'this',
+  'total',
+  'were',
+  'was',
+]);
 
 const keywords = (label: string) =>
-  [...new Set(normalize(label).match(/[a-z]{4,}/g) ?? [])].filter((w) => !STOP.has(w));
+  [...new Set(normalize(label).match(/[a-z]{4,}/g) ?? [])].filter(
+    (w) => !STOP.has(w),
+  );
 
 /**
  * Does the page contain what the person says it contains?
@@ -94,7 +107,8 @@ export function verifyFigure(
   }
 
   const present = new Set(numberTokens(page));
-  for (const token of wanted) if (!present.has(token)) return { found: false, excerpt: '' };
+  for (const token of wanted)
+    if (!present.has(token)) return { found: false, excerpt: '' };
 
   // Find each place the first number stands alone, allowing thousands commas on the page.
   const first = wanted[0];
@@ -108,9 +122,15 @@ export function verifyFigure(
     const at = match.index ?? 0;
     firstHit ??= { at, len: match[0].length };
     if (words.length === 0) break;
-    const near = page.slice(Math.max(0, at - CONTEXT_RADIUS), at + CONTEXT_RADIUS);
+    const near = page.slice(
+      Math.max(0, at - CONTEXT_RADIUS),
+      at + CONTEXT_RADIUS,
+    );
     if (words.some((w) => near.includes(w)))
-      return { found: true, excerpt: excerptAround(clean, at, match[0].length) };
+      return {
+        found: true,
+        excerpt: excerptAround(clean, at, match[0].length),
+      };
   }
   if (!firstHit) return { found: false, excerpt: '' };
   return words.length === 0

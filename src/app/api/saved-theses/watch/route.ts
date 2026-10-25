@@ -53,7 +53,9 @@ export async function GET(request: Request) {
   const alerts = theses
     .flatMap((thesis) =>
       thesis.failurePaths.map((path) => {
-        const quote = thesis.instrumentId ? (prices.get(thesis.instrumentId) ?? null) : null;
+        const quote = thesis.instrumentId
+          ? (prices.get(thesis.instrumentId) ?? null)
+          : null;
         const result = evaluateTrigger(
           {
             triggerKind: path.triggerKind as TriggerKind,
@@ -80,7 +82,10 @@ export async function GET(request: Request) {
     .sort((a, b) => order[a.state] - order[b.state]);
 
   return withOwnerCookie(
-    Response.json({ checkedAt: now.toISOString(), alerts }, { headers: NO_STORE }),
+    Response.json(
+      { checkedAt: now.toISOString(), alerts },
+      { headers: NO_STORE },
+    ),
     owner,
   );
 }

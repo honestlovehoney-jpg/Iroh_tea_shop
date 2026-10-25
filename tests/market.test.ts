@@ -22,7 +22,7 @@ describe('marketMetrics', () => {
   test('reads the day move from the last two closes and the week move from the first and last', () => {
     const metrics = marketMetrics([100, 102, 104, 103, 105, 106, 108, 110]);
     expect(metrics.lastClose).toBe(110);
-    expect(metrics.dayChangePct).toBeCloseTo((110 - 108) / 108 * 100);
+    expect(metrics.dayChangePct).toBeCloseTo(((110 - 108) / 108) * 100);
     expect(metrics.weekChangePct).toBeCloseTo(10);
   });
   test('has no moves without two closes', () => {

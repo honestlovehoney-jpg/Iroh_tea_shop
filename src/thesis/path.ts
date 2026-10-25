@@ -22,11 +22,36 @@ export interface Stop {
 }
 
 export const PATH_STOPS: readonly Stop[] = [
-  { id: 'thesis', label: 'Thesis Table', does: 'State the idea', doneWhen: 'draft' },
-  { id: 'failures', label: 'Failure Table', does: 'Name how it fails', doneWhen: 'failures_resolved' },
-  { id: 'evidence', label: 'Evidence Shelf', does: 'Bind every figure to a source', doneWhen: 'evidence_reviewed' },
-  { id: 'seal', label: 'Probability Seal', does: 'Commit to a probability', doneWhen: 'sealed' },
-  { id: 'balance', label: 'Balance Scale', does: 'Read the portfolio risk', doneWhen: 'locked' },
+  {
+    id: 'thesis',
+    label: 'Thesis Table',
+    does: 'State the idea',
+    doneWhen: 'draft',
+  },
+  {
+    id: 'failures',
+    label: 'Failure Table',
+    does: 'Name how it fails',
+    doneWhen: 'failures_resolved',
+  },
+  {
+    id: 'evidence',
+    label: 'Evidence Shelf',
+    does: 'Bind every figure to a source',
+    doneWhen: 'evidence_reviewed',
+  },
+  {
+    id: 'seal',
+    label: 'Probability Seal',
+    does: 'Commit to a probability',
+    doneWhen: 'sealed',
+  },
+  {
+    id: 'balance',
+    label: 'Balance Scale',
+    does: 'Read the portfolio risk',
+    doneWhen: 'locked',
+  },
 ];
 
 const ORDER: PathStatus[] = [
@@ -59,16 +84,24 @@ export function pathProgress(status: PathStatus): PathView {
   // is finished once the status it produces has been reached.
   const isFinished = (stop: Stop, index: number) =>
     index === 0 || ORDER.indexOf(stop.doneWhen) <= at;
-  const firstOpen = PATH_STOPS.findIndex((stop, index) => !isFinished(stop, index));
+  const firstOpen = PATH_STOPS.findIndex(
+    (stop, index) => !isFinished(stop, index),
+  );
   const stops: StopView[] = PATH_STOPS.map((stop, index) => {
     const finished = isFinished(stop, index);
-    const state: StopState = finished ? 'done' : index === firstOpen ? 'current' : 'ahead';
+    const state: StopState = finished
+      ? 'done'
+      : index === firstOpen
+        ? 'current'
+        : 'ahead';
     return {
       ...stop,
       number: index + 1,
       state,
       blockedBy:
-        state === 'ahead' ? `Finish the ${PATH_STOPS[index - 1].label} first.` : null,
+        state === 'ahead'
+          ? `Finish the ${PATH_STOPS[index - 1].label} first.`
+          : null,
     };
   });
   const completed = stops.filter((s) => s.state === 'done').length;

@@ -90,7 +90,12 @@ describe('buildMarketClaims', () => {
   });
 
   it('returns one withheld claim for a stock Bitget does not list', () => {
-    const claims = buildMarketClaims({ ...base, instrumentId: null, price: null, daily: null });
+    const claims = buildMarketClaims({
+      ...base,
+      instrumentId: null,
+      price: null,
+      daily: null,
+    });
     expect(claims).toHaveLength(1);
     expect(claims[0].state).toBe('insufficient');
   });
@@ -113,9 +118,25 @@ describe('validateUserClaim', () => {
   });
 
   it('refuses an SEC claim linked to another host, a plain http link, or a future date', () => {
-    expect(validateUserClaim({ ...sec, observedAt: '2026-10-01', sourceUrl: 'https://example.com/a' }, now).ok).toBe(false);
-    expect(validateUserClaim({ ...sec, observedAt: '2026-10-01', sourceUrl: 'http://www.sec.gov/a' }, now).ok).toBe(false);
-    expect(validateUserClaim({ ...sec, observedAt: '2026-10-31' }, now).ok).toBe(false);
+    expect(
+      validateUserClaim(
+        {
+          ...sec,
+          observedAt: '2026-10-01',
+          sourceUrl: 'https://example.com/a',
+        },
+        now,
+      ).ok,
+    ).toBe(false);
+    expect(
+      validateUserClaim(
+        { ...sec, observedAt: '2026-10-01', sourceUrl: 'http://www.sec.gov/a' },
+        now,
+      ).ok,
+    ).toBe(false);
+    expect(
+      validateUserClaim({ ...sec, observedAt: '2026-10-31' }, now).ok,
+    ).toBe(false);
   });
 
   it('refuses a host that only ends with the primary name', () => {
@@ -128,7 +149,12 @@ describe('validateUserClaim', () => {
 
   it('keeps a company release amber', () => {
     const result = validateUserClaim(
-      { ...sec, sourceKind: 'company_release', sourceUrl: 'https://investor.example.com/q3', observedAt: '2026-10-01' },
+      {
+        ...sec,
+        sourceKind: 'company_release',
+        sourceUrl: 'https://investor.example.com/q3',
+        observedAt: '2026-10-01',
+      },
       now,
     );
     expect(result.ok && result.value.state).toBe('inferred');
@@ -137,18 +163,31 @@ describe('validateUserClaim', () => {
 
   it('accepts a Federal Reserve statement and refuses an unknown kind', () => {
     const fed = validateUserClaim(
-      { ...sec, sourceKind: 'central_bank', sourceUrl: 'https://www.federalreserve.gov/newsevents/x.htm', observedAt: '2026-09-17' },
+      {
+        ...sec,
+        sourceKind: 'central_bank',
+        sourceUrl: 'https://www.federalreserve.gov/newsevents/x.htm',
+        observedAt: '2026-09-17',
+      },
       now,
     );
     expect(fed.ok && fed.verify).toBe(true);
-    expect(validateUserClaim({ ...sec, observedAt: '2026-10-01', sourceKind: 'blog' }, now).ok).toBe(false);
+    expect(
+      validateUserClaim(
+        { ...sec, observedAt: '2026-10-01', sourceKind: 'blog' },
+        now,
+      ).ok,
+    ).toBe(false);
   });
 });
 
 describe('evidenceStatus gate', () => {
   const now = new Date('2026-10-28T12:00:00Z');
   const fresh = '2026-10-28T10:00:00.000Z';
-  const claim = (state: 'observed' | 'inferred' | 'insufficient', extra = {}) => ({
+  const claim = (
+    state: 'observed' | 'inferred' | 'insufficient',
+    extra = {},
+  ) => ({
     state,
     origin: 'system' as const,
     acknowledged: false,
@@ -166,15 +205,23 @@ describe('evidenceStatus gate', () => {
     const open = evidenceStatus([claim('observed'), claim('inferred')], now);
     expect(open.complete).toBe(false);
     expect(open.unacknowledged).toBe(1);
-    const done = evidenceStatus([claim('observed'), claim('inferred', { acknowledged: true })], now);
+    const done = evidenceStatus(
+      [claim('observed'), claim('inferred', { acknowledged: true })],
+      now,
+    );
     expect(done.complete).toBe(true);
   });
 
   it('blocks stale Bitget evidence but not your own old sources', () => {
     const old = '2026-10-20T00:00:00.000Z';
-    expect(evidenceStatus([claim('observed', { fetchedAt: old })], now).complete).toBe(false);
     expect(
-      evidenceStatus([claim('observed', { fetchedAt: old, origin: 'user' })], now).complete,
+      evidenceStatus([claim('observed', { fetchedAt: old })], now).complete,
+    ).toBe(false);
+    expect(
+      evidenceStatus(
+        [claim('observed', { fetchedAt: old, origin: 'user' })],
+        now,
+      ).complete,
     ).toBe(true);
   });
 });

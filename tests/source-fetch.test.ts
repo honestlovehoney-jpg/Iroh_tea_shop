@@ -46,7 +46,10 @@ describe('checkPrimarySource', () => {
       'x',
       fetcher((url) => {
         seen.push(url);
-        return new Response(null, { status: 302, headers: { location: 'https://evil.example.com/x' } });
+        return new Response(null, {
+          status: 302,
+          headers: { location: 'https://evil.example.com/x' },
+        });
       }),
     );
     expect(result.status).toBe('unreadable');
@@ -67,7 +70,9 @@ describe('checkPrimarySource', () => {
       ),
     );
     expect(result.status).toBe('verified');
-    expect(result.status === 'verified' && result.finalUrl).toBe('https://www.sec.gov/b.htm');
+    expect(result.status === 'verified' && result.finalUrl).toBe(
+      'https://www.sec.gov/b.htm',
+    );
   });
 
   it('reports a PDF, an error status and a missing sec.gov User-Agent as unreadable', async () => {
@@ -77,7 +82,13 @@ describe('checkPrimarySource', () => {
       'https://www.federalreserve.gov/x.pdf',
       '4.25',
       'rate',
-      fetcher(() => new Response('%PDF', { status: 200, headers: { 'content-type': 'application/pdf' } })),
+      fetcher(
+        () =>
+          new Response('%PDF', {
+            status: 200,
+            headers: { 'content-type': 'application/pdf' },
+          }),
+      ),
     );
     expect(pdf.status).toBe('unreadable');
     const missing = await checkPrimarySource(
@@ -101,9 +112,21 @@ describe('checkPrimarySource', () => {
 
   it('refuses a plain http link and a host outside the allowed list', async () => {
     process.env.SOURCE_FETCH_USER_AGENT = 'Tester test@example.com';
-    const insecure = await checkPrimarySource('sec_filing', 'http://www.sec.gov/a', '1', 'x', fetcher(() => html('1')));
+    const insecure = await checkPrimarySource(
+      'sec_filing',
+      'http://www.sec.gov/a',
+      '1',
+      'x',
+      fetcher(() => html('1')),
+    );
     expect(insecure.status).toBe('unreadable');
-    const other = await checkPrimarySource('central_bank', 'https://www.sec.gov/a', '1', 'x', fetcher(() => html('1')));
+    const other = await checkPrimarySource(
+      'central_bank',
+      'https://www.sec.gov/a',
+      '1',
+      'x',
+      fetcher(() => html('1')),
+    );
     expect(other.status).toBe('unreadable');
   });
 });

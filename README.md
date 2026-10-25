@@ -8,12 +8,12 @@ A 3D tea shop in your browser where you test stock theses against Bitget market 
 
 You start outside the shop, in front of a sketchbook. Press **Enter Teashop** when the room has loaded. A dock at the bottom of the screen takes you between the stops.
 
-| Stop              | What you do there                                                                 |
-| ----------------- | --------------------------------------------------------------------------------- |
-| **Counter**       | Read stock theses, search instruments, and save your own theses.                  |
-| **Host**          | Ask Uncle a question. He answers from Bitget market data, written by Qwen.        |
-| **Shelf**         | See which instruments Bitget covers and how complete the data is.                 |
-| **Observatorium** | See how the S&P 500 benchmark and the largest US stocks are moving.               |
+| Stop              | What you do there                                                          |
+| ----------------- | -------------------------------------------------------------------------- |
+| **Counter**       | Read stock theses, search instruments, and save your own theses.           |
+| **Host**          | Ask Uncle a question. He answers from Bitget market data, written by Qwen. |
+| **Shelf**         | See which instruments Bitget covers and how complete the data is.          |
+| **Observatorium** | See how the S&P 500 benchmark and the largest US stocks are moving.        |
 
 The first dock button, **Waiting room**, takes you back to the sketchbook.
 
@@ -99,14 +99,14 @@ You need Node.js and npm. Use Node.js 24.10.0, the version in `.nvmrc`.
    cp .env.example .env.local
    ```
 
-   | Variable        | What it is                                           |
-   | --------------- | ---------------------------------------------------- |
-   | `QWEN_API_KEY`  | Key for the Qwen model that writes Uncle's answers.  |
-   | `QWEN_BASE_URL` | Base URL of the Qwen API.                            |
-   | `QWEN_MODEL`    | Name of the Qwen model to use.                       |
-   | `DATABASE_URL`  | Database connection string.                          |
-   | `BITGET_CATALOG_SYNC_TOKEN` | Secret that allows the catalog sync (step 5). |
-   | `SOURCE_FETCH_USER_AGENT` | Who you are to sec.gov, for example `YourApp you@example.com`. Without it SEC claims stay amber. |
+   | Variable                    | What it is                                                                                       |
+   | --------------------------- | ------------------------------------------------------------------------------------------------ |
+   | `QWEN_API_KEY`              | Key for the Qwen model that writes Uncle's answers.                                              |
+   | `QWEN_BASE_URL`             | Base URL of the Qwen API.                                                                        |
+   | `QWEN_MODEL`                | Name of the Qwen model to use.                                                                   |
+   | `DATABASE_URL`              | Database connection string.                                                                      |
+   | `BITGET_CATALOG_SYNC_TOKEN` | Secret that allows the catalog sync (step 5).                                                    |
+   | `SOURCE_FETCH_USER_AGENT`   | Who you are to sec.gov, for example `YourApp you@example.com`. Without it SEC claims stay amber. |
 
    Keep these server-side. Never put them in a `NEXT_PUBLIC_` variable, because Next.js sends those to the browser.
 
@@ -144,17 +144,17 @@ The site runs on Vercel. A push to `main` starts a deploy. Set `QWEN_API_KEY`, `
 
 ## Where the code lives
 
-| Folder                              | What it holds                                                          |
-| ----------------------------------- | ---------------------------------------------------------------------- |
-| `src/app/`                          | Next.js pages and API routes, including `api/bitget/`                  |
-| `src/scene/`                        | The 3D room: camera, props, the host, the orrery                       |
-| `src/ui/`                           | Panels, the Thesis Desk, the Shelf, the dock, the waiting room         |
-| `src/thesis/`                       | The theses and their types                                             |
-| `src/services/bitget/`              | The Bitget MCP client                                                  |
-| `src/chat/`                         | The chat session with Uncle, limits, and availability                  |
-| `src/auth/`, `src/iroh/`, `prisma/` | Accounts, saved chats and theses, and the database schema              |
-| `scripts/`                          | Database setup and audit scripts                                       |
-| `tests/`                            | Unit tests; Bitget tests are in `tests/bitget/`, browser tests too     |
+| Folder                              | What it holds                                                      |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `src/app/`                          | Next.js pages and API routes, including `api/bitget/`              |
+| `src/scene/`                        | The 3D room: camera, props, the host, the orrery                   |
+| `src/ui/`                           | Panels, the Thesis Desk, the Shelf, the dock, the waiting room     |
+| `src/thesis/`                       | The theses and their types                                         |
+| `src/services/bitget/`              | The Bitget MCP client                                              |
+| `src/chat/`                         | The chat session with Uncle, limits, and availability              |
+| `src/auth/`, `src/iroh/`, `prisma/` | Accounts, saved chats and theses, and the database schema          |
+| `scripts/`                          | Database setup and audit scripts                                   |
+| `tests/`                            | Unit tests; Bitget tests are in `tests/bitget/`, browser tests too |
 
 In the code, "Iroh" means Uncle.
 

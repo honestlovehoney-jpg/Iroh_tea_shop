@@ -381,8 +381,7 @@ function DeckStatus({
     );
   return (
     <p className="deck-status" data-state="live">
-      Bitget price data · updated{' '}
-      {formatRelative(deck.snapshot.fetchedAt, now)}
+      Bitget price data · updated {formatRelative(deck.snapshot.fetchedAt, now)}
       {deck.snapshot.stale && <span className="deck-stale">Stale</span>}
     </p>
   );
@@ -643,8 +642,7 @@ function Meter({
             const signal = summary.tickers.find(
               (s) => s.symbol === ticker.symbol,
             );
-            const flow =
-              signal?.status === 'ok' ? signal.changePct : null;
+            const flow = signal?.status === 'ok' ? signal.changePct : null;
             const state = flow === null ? 'none' : flow > 0 ? 'up' : 'down';
             return (
               <li key={ticker.symbol} data-state={state}>
@@ -789,7 +787,9 @@ function ThesisReading({
             <button
               type="button"
               className="scroll-action scroll-action--primary"
-              onClick={() => onTalkToUncle(buildUncleDraft(thesis, summary), thesis.id)}
+              onClick={() =>
+                onTalkToUncle(buildUncleDraft(thesis, summary), thesis.id)
+              }
             >
               Ask Uncle about this thesis
             </button>

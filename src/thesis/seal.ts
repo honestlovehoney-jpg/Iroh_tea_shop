@@ -25,7 +25,10 @@ export type SealValidation =
 
 export function validateSealInput(input: unknown): SealValidation {
   if (typeof input !== 'object' || input === null)
-    return { ok: false, errors: ['Send a direction, a probability and a horizon.'] };
+    return {
+      ok: false,
+      errors: ['Send a direction, a probability and a horizon.'],
+    };
   const raw = input as Record<string, unknown>;
   const errors: string[] = [];
   const direction = DIRECTIONS.find((d) => d === raw.direction);
@@ -47,7 +50,9 @@ export function validateSealInput(input: unknown): SealValidation {
     horizon < MIN_HORIZON_DAYS ||
     horizon > MAX_HORIZON_DAYS
   )
-    errors.push(`The horizon must be a whole number of days from ${MIN_HORIZON_DAYS} to ${MAX_HORIZON_DAYS}.`);
+    errors.push(
+      `The horizon must be a whole number of days from ${MIN_HORIZON_DAYS} to ${MAX_HORIZON_DAYS}.`,
+    );
   if (errors.length || !direction) return { ok: false, errors };
   return {
     ok: true,
@@ -63,7 +68,11 @@ export function validateSealInput(input: unknown): SealValidation {
 export function resolvesAtFor(sealedAt: Date, horizonDays: number): Date {
   const target = new Date(sealedAt.getTime() + horizonDays * DAY_MS);
   return new Date(
-    Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate() + 1),
+    Date.UTC(
+      target.getUTCFullYear(),
+      target.getUTCMonth(),
+      target.getUTCDate() + 1,
+    ),
   );
 }
 
@@ -73,7 +82,9 @@ export function outcomeFor(
   referencePrice: number,
   resolvedPrice: number,
 ): boolean {
-  return direction === 'up' ? resolvedPrice > referencePrice : resolvedPrice < referencePrice;
+  return direction === 'up'
+    ? resolvedPrice > referencePrice
+    : resolvedPrice < referencePrice;
 }
 
 /** Brier score for one forecast: the squared gap between the probability and what happened. 0 is perfect. */
@@ -103,7 +114,8 @@ export function baseRate(
   if (windows < MIN_BASE_RATE_WINDOWS) return null;
   let hits = 0;
   for (let i = 0; i < windows; i++)
-    if (outcomeFor(direction, sorted[i].close, sorted[i + horizonDays].close)) hits++;
+    if (outcomeFor(direction, sorted[i].close, sorted[i + horizonDays].close))
+      hits++;
   return hits / windows;
 }
 
@@ -135,14 +147,23 @@ export function parseSystemProbability(
   const last = stripped.lastIndexOf('}');
   if (first < 0 || last <= first) return null;
   try {
-    const parsed = JSON.parse(stripped.slice(first, last + 1)) as Record<string, unknown>;
-    const p = typeof parsed.probability === 'string' ? Number(parsed.probability) : parsed.probability;
+    const parsed = JSON.parse(stripped.slice(first, last + 1)) as Record<
+      string,
+      unknown
+    >;
+    const p =
+      typeof parsed.probability === 'string'
+        ? Number(parsed.probability)
+        : parsed.probability;
     if (typeof p !== 'number' || !Number.isFinite(p)) return null;
     // Accept 62 as 62%, but never guess between 0.5 and 1 versus 50 and 100 for a bare 1.
     const probability = p > 1 ? p / 100 : p;
-    if (probability < MIN_PROBABILITY || probability > MAX_PROBABILITY) return null;
+    if (probability < MIN_PROBABILITY || probability > MAX_PROBABILITY)
+      return null;
     const rationale =
-      typeof parsed.rationale === 'string' ? parsed.rationale.trim().slice(0, 400) : '';
+      typeof parsed.rationale === 'string'
+        ? parsed.rationale.trim().slice(0, 400)
+        : '';
     return { probability, rationale };
   } catch {
     return null;

@@ -24,11 +24,16 @@ export async function resolveDueSeals(
   });
   const due = theses
     .flatMap((t) => (t.seal ? [t.seal] : []))
-    .filter((s) => s.status === 'open' && s.resolvesAt.getTime() <= now.getTime())
+    .filter(
+      (s) => s.status === 'open' && s.resolvesAt.getTime() <= now.getTime(),
+    )
     .slice(0, MAX_PER_CALL);
   if (due.length === 0) return 0;
 
-  const candles = new Map<string, Awaited<ReturnType<typeof dailyCandles100>>>();
+  const candles = new Map<
+    string,
+    Awaited<ReturnType<typeof dailyCandles100>>
+  >();
   for (const id of new Set(due.map((s) => s.instrumentId)))
     candles.set(id, await dailyCandles100(id));
 
@@ -38,14 +43,21 @@ export async function resolveDueSeals(
     const close = closes ? resolvingClose(closes, seal.resolvesAt, now) : null;
     if (!close) {
       // Only give up once the candle can no longer be fetched, never because Bitget was briefly down.
-      if (closes && now.getTime() - seal.resolvesAt.getTime() > LOOKBACK_DAYS * DAY_MS)
+      if (
+        closes &&
+        now.getTime() - seal.resolvesAt.getTime() > LOOKBACK_DAYS * DAY_MS
+      )
         await db.seal.update({
           where: { id: seal.id },
           data: { status: 'unresolvable', resolvedAt: now },
         });
       continue;
     }
-    const outcome = outcomeFor(seal.direction as Direction, seal.referencePrice, close.close);
+    const outcome = outcomeFor(
+      seal.direction as Direction,
+      seal.referencePrice,
+      close.close,
+    );
     await db.seal.update({
       where: { id: seal.id },
       data: {

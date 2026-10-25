@@ -15,7 +15,8 @@ const now = new Date('2026-10-24T12:00:00Z');
 const ctx = { now, hasInstrument: true };
 
 const good: FailurePathFields = {
-  condition: 'AAPL closes below 170 on the daily candle before the January earnings call.',
+  condition:
+    'AAPL closes below 170 on the daily candle before the January earnings call.',
   probability: 0.2,
   impactPct: 6,
   deadline: '2027-01-30T00:00:00.000Z',
@@ -53,16 +54,24 @@ describe('validateFailurePath', () => {
   });
 
   it('rejects a deadline in the past, a bad date and one beyond five years', () => {
-    expect(validateFailurePath({ ...good, deadline: '2026-01-01' }, ctx).ok).toBe(false);
-    expect(validateFailurePath({ ...good, deadline: 'soon' }, ctx).ok).toBe(false);
-    expect(validateFailurePath({ ...good, deadline: '2040-01-01' }, ctx).ok).toBe(false);
+    expect(
+      validateFailurePath({ ...good, deadline: '2026-01-01' }, ctx).ok,
+    ).toBe(false);
+    expect(validateFailurePath({ ...good, deadline: 'soon' }, ctx).ok).toBe(
+      false,
+    );
+    expect(
+      validateFailurePath({ ...good, deadline: '2040-01-01' }, ctx).ok,
+    ).toBe(false);
   });
 
   it('needs a level for price triggers and an instrument to watch', () => {
-    expect(validateFailurePath({ ...good, triggerLevel: null }, ctx).ok).toBe(false);
-    expect(
-      validateFailurePath(good, { ...ctx, hasInstrument: false }).ok,
-    ).toBe(false);
+    expect(validateFailurePath({ ...good, triggerLevel: null }, ctx).ok).toBe(
+      false,
+    );
+    expect(validateFailurePath(good, { ...ctx, hasInstrument: false }).ok).toBe(
+      false,
+    );
     expect(
       validateFailurePath(
         { ...good, triggerKind: 'date', triggerLevel: null },
@@ -79,7 +88,8 @@ describe('validateFailurePath', () => {
 
 describe('model output parsing', () => {
   const item = {
-    condition: 'NVDA falls 25% from its current price within 90 days of the next earnings report.',
+    condition:
+      'NVDA falls 25% from its current price within 90 days of the next earnings report.',
     probability: 0.15,
     impact_pct: 8,
     deadline: '2027-02-01',
@@ -94,7 +104,9 @@ describe('model output parsing', () => {
   it('reads a bare array and JSON with prose around it', () => {
     expect(extractPathObjects(JSON.stringify([item, item]))).toHaveLength(2);
     expect(
-      extractPathObjects('Here you go: ' + JSON.stringify({ paths: [item] }) + ' Done.'),
+      extractPathObjects(
+        'Here you go: ' + JSON.stringify({ paths: [item] }) + ' Done.',
+      ),
     ).toHaveLength(1);
   });
 
@@ -104,7 +116,9 @@ describe('model output parsing', () => {
 
   it('keeps valid paths, drops invalid ones and caps at five', () => {
     const bad = { ...item, probability: 2 };
-    const text = JSON.stringify({ paths: [item, bad, item, item, item, item, item] });
+    const text = JSON.stringify({
+      paths: [item, bad, item, item, item, item, item],
+    });
     const { paths, dropped } = parseModelPaths(text, ctx);
     expect(paths).toHaveLength(5);
     expect(dropped).toHaveLength(1);
@@ -116,7 +130,9 @@ describe('model output parsing', () => {
 
 describe('premortemStatus gate', () => {
   it('is complete with three decided paths and two kept', () => {
-    expect(premortemStatus(states('accepted', 'modified', 'rejected')).complete).toBe(true);
+    expect(
+      premortemStatus(states('accepted', 'modified', 'rejected')).complete,
+    ).toBe(true);
   });
 
   it('blocks on pending paths', () => {
@@ -126,15 +142,27 @@ describe('premortemStatus gate', () => {
   });
 
   it('blocks below three and above five paths', () => {
-    expect(premortemStatus(states('accepted', 'accepted')).complete).toBe(false);
+    expect(premortemStatus(states('accepted', 'accepted')).complete).toBe(
+      false,
+    );
     expect(
-      premortemStatus(states('accepted', 'accepted', 'accepted', 'accepted', 'accepted', 'accepted'))
-        .complete,
+      premortemStatus(
+        states(
+          'accepted',
+          'accepted',
+          'accepted',
+          'accepted',
+          'accepted',
+          'accepted',
+        ),
+      ).complete,
     ).toBe(false);
   });
 
   it('blocks when too many are rejected', () => {
-    expect(premortemStatus(states('accepted', 'rejected', 'rejected')).complete).toBe(false);
+    expect(
+      premortemStatus(states('accepted', 'rejected', 'rejected')).complete,
+    ).toBe(false);
   });
 
   it('blocks an empty table', () => {
@@ -154,30 +182,65 @@ describe('applyDecision', () => {
   });
 
   it('modifies with a valid change and refuses a no-op or invalid edit', () => {
-    const ok = applyDecision(good, { action: 'modify', edits: { probability: 0.35 } }, ctx);
+    const ok = applyDecision(
+      good,
+      { action: 'modify', edits: { probability: 0.35 } },
+      ctx,
+    );
     expect(ok.ok && ok.fields?.probability).toBe(0.35);
     expect(ok.ok && ok.decision).toBe('modified');
-    expect(applyDecision(good, { action: 'modify', edits: { probability: 0.2 } }, ctx).ok).toBe(false);
-    expect(applyDecision(good, { action: 'modify', edits: { probability: 5 } }, ctx).ok).toBe(false);
-    expect(applyDecision(good, { action: 'modify', edits: {} }, ctx).ok).toBe(false);
+    expect(
+      applyDecision(
+        good,
+        { action: 'modify', edits: { probability: 0.2 } },
+        ctx,
+      ).ok,
+    ).toBe(false);
+    expect(
+      applyDecision(good, { action: 'modify', edits: { probability: 5 } }, ctx)
+        .ok,
+    ).toBe(false);
+    expect(applyDecision(good, { action: 'modify', edits: {} }, ctx).ok).toBe(
+      false,
+    );
   });
 
   it('needs a reason to reject', () => {
-    expect(applyDecision(good, { action: 'reject', reason: 'no' }, ctx).ok).toBe(false);
-    const ok = applyDecision(good, { action: 'reject', reason: 'Already hedged with a put.' }, ctx);
+    expect(
+      applyDecision(good, { action: 'reject', reason: 'no' }, ctx).ok,
+    ).toBe(false);
+    const ok = applyDecision(
+      good,
+      { action: 'reject', reason: 'Already hedged with a put.' },
+      ctx,
+    );
     expect(ok.ok && ok.decision).toBe('rejected');
   });
 });
 
 describe('canAdvance', () => {
   it('opens failures_resolved only when the premortem is complete', () => {
-    expect(canAdvance('draft', 'failures_resolved', states('accepted', 'accepted', 'accepted')).ok).toBe(true);
-    const blocked = canAdvance('draft', 'failures_resolved', states('pending', 'accepted', 'accepted'));
+    expect(
+      canAdvance(
+        'draft',
+        'failures_resolved',
+        states('accepted', 'accepted', 'accepted'),
+      ).ok,
+    ).toBe(true);
+    const blocked = canAdvance(
+      'draft',
+      'failures_resolved',
+      states('pending', 'accepted', 'accepted'),
+    );
     expect(!blocked.ok && blocked.code).toBe('blocked');
   });
 
   it('refuses to skip stages or go backwards', () => {
-    const skip = canAdvance('draft', 'locked', states('accepted', 'accepted', 'accepted'));
+    const skip = canAdvance(
+      'draft',
+      'locked',
+      states('accepted', 'accepted', 'accepted'),
+    );
     expect(!skip.ok && skip.code).toBe('out_of_order');
     const back = canAdvance('failures_resolved', 'draft', []);
     expect(!back.ok && back.code).toBe('out_of_order');
@@ -185,7 +248,10 @@ describe('canAdvance', () => {
 
   it('opens evidence_reviewed only when the Evidence Shelf is complete', () => {
     expect(
-      canAdvance('failures_resolved', 'evidence_reviewed', [], { complete: true, blockers: [] }).ok,
+      canAdvance('failures_resolved', 'evidence_reviewed', [], {
+        complete: true,
+        blockers: [],
+      }).ok,
     ).toBe(true);
     const blocked = canAdvance('failures_resolved', 'evidence_reviewed', [], {
       complete: false,
@@ -215,7 +281,11 @@ describe('evaluateTrigger', () => {
   });
 
   it('handles price_above symmetrically', () => {
-    const up = { ...good, triggerKind: 'price_above' as const, triggerLevel: 100 };
+    const up = {
+      ...good,
+      triggerKind: 'price_above' as const,
+      triggerLevel: 100,
+    };
     expect(evaluateTrigger(up, 101, now).state).toBe('breached');
     expect(evaluateTrigger(up, 96, now).state).toBe('approaching');
     expect(evaluateTrigger(up, 80, now).state).toBe('clear');
@@ -226,7 +296,11 @@ describe('evaluateTrigger', () => {
     expect(evaluateTrigger(past, 200, now).state).toBe('expired');
     expect(evaluateTrigger(good, null, now).state).toBe('unmonitored');
     expect(
-      evaluateTrigger({ ...good, triggerKind: 'manual', triggerLevel: null }, null, now).state,
+      evaluateTrigger(
+        { ...good, triggerKind: 'manual', triggerLevel: null },
+        null,
+        now,
+      ).state,
     ).toBe('unmonitored');
   });
 

@@ -16,7 +16,10 @@ export async function GET(request: Request, { params }: Ctx) {
   const thesis = await loadOwned(db, owner, thesisId);
   if (!thesis)
     return withOwnerCookie(
-      Response.json({ error: 'Thesis not found.' }, { status: 404, headers: NO_STORE }),
+      Response.json(
+        { error: 'Thesis not found.' },
+        { status: 404, headers: NO_STORE },
+      ),
       owner,
     );
   return withOwnerCookie(
@@ -33,7 +36,10 @@ export async function DELETE(request: Request, { params }: Ctx) {
   const owner = await resolveOwner(db, request);
   const thesis = await loadOwned(db, owner, thesisId);
   if (!thesis)
-    return Response.json({ error: 'Thesis not found.' }, { status: 404, headers: NO_STORE });
+    return Response.json(
+      { error: 'Thesis not found.' },
+      { status: 404, headers: NO_STORE },
+    );
   if (
     thesis.status !== 'draft' &&
     thesis.status !== 'failures_resolved' &&

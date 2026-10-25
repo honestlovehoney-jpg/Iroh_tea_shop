@@ -61,7 +61,9 @@ export class IrohSession {
 
   subscribe = (listener: Listener) => {
     this.listeners.add(listener);
-    return () => { this.listeners.delete(listener); };
+    return () => {
+      this.listeners.delete(listener);
+    };
   };
 
   getSnapshot = () => this.snapshot;
@@ -91,7 +93,7 @@ export class IrohSession {
       isStreaming: false,
       error: null,
       errorCode: null,
-    currentTool: null,
+      currentTool: null,
     };
     this.emit();
   }
@@ -115,7 +117,7 @@ export class IrohSession {
       isStreaming: false,
       error: null,
       errorCode: null,
-    currentTool: null,
+      currentTool: null,
       lastSymbol: null,
       lastInstrumentId: null,
     };
@@ -174,7 +176,7 @@ export class IrohSession {
         lastInstrumentId: effectiveInstrumentId,
         error: null,
         errorCode: null,
-    currentTool: null,
+        currentTool: null,
       };
     } else {
       this.snapshot = {
@@ -183,7 +185,7 @@ export class IrohSession {
         lastInstrumentId: effectiveInstrumentId,
         error: null,
         errorCode: null,
-    currentTool: null,
+        currentTool: null,
       };
     }
 
@@ -238,7 +240,7 @@ export class IrohSession {
         ],
         error: null,
         errorCode: null,
-    currentTool: null,
+        currentTool: null,
       };
       this.setStreaming(false);
       this.emit();
@@ -271,7 +273,7 @@ export class IrohSession {
       messages: this.snapshot.messages.slice(0, idx + 1),
       error: null,
       errorCode: null,
-    currentTool: null,
+      currentTool: null,
     };
     this.emit();
     await this.send(lastUser.content, this.snapshot.lastSymbol, {

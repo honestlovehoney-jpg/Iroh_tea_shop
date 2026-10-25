@@ -20,7 +20,10 @@ export async function POST(request: Request, { params }: Ctx) {
   const owner = await resolveOwner(db, request);
   const thesis = await loadOwned(db, owner, thesisId);
   if (!thesis)
-    return Response.json({ error: 'Thesis not found.' }, { status: 404, headers: NO_STORE });
+    return Response.json(
+      { error: 'Thesis not found.' },
+      { status: 404, headers: NO_STORE },
+    );
   if (!evidenceEditable(thesis.status))
     return Response.json(
       {
@@ -31,7 +34,9 @@ export async function POST(request: Request, { params }: Ctx) {
       },
       { status: 409, headers: NO_STORE },
     );
-  if (thesis.claims.filter((c) => c.origin === 'user').length >= MAX_USER_CLAIMS)
+  if (
+    thesis.claims.filter((c) => c.origin === 'user').length >= MAX_USER_CLAIMS
+  )
     return Response.json(
       { error: `You can add up to ${MAX_USER_CLAIMS} sources.` },
       { status: 409, headers: NO_STORE },
@@ -98,7 +103,10 @@ export async function POST(request: Request, { params }: Ctx) {
   });
   const fresh = await loadOwned(db, owner, thesis.id);
   return withOwnerCookie(
-    Response.json({ thesis: fresh ? thesisView(fresh) : null }, { status: 201, headers: NO_STORE }),
+    Response.json(
+      { thesis: fresh ? thesisView(fresh) : null },
+      { status: 201, headers: NO_STORE },
+    ),
     owner,
   );
 }

@@ -76,7 +76,8 @@ export function validateFailurePath(
     return { ok: false, errors: ['A failure path must be an object.'] };
   const raw = input as Record<string, unknown>;
 
-  const condition = typeof raw.condition === 'string' ? raw.condition.trim() : '';
+  const condition =
+    typeof raw.condition === 'string' ? raw.condition.trim() : '';
   if (condition.length < MIN_CONDITION || condition.length > MAX_CONDITION)
     errors.push(
       `The failing condition needs ${MIN_CONDITION} to ${MAX_CONDITION} characters.`,
@@ -92,12 +93,15 @@ export function validateFailurePath(
 
   const impactPct = raw.impactPct;
   if (!isFiniteNumber(impactPct) || impactPct <= 0 || impactPct > 100)
-    errors.push('Impact must be above 0 and at most 100 percent of the portfolio.');
+    errors.push(
+      'Impact must be above 0 and at most 100 percent of the portfolio.',
+    );
 
   let deadline = '';
   const deadlineMs =
     typeof raw.deadline === 'string' ? Date.parse(raw.deadline) : NaN;
-  if (!Number.isFinite(deadlineMs)) errors.push('The deadline must be a valid date.');
+  if (!Number.isFinite(deadlineMs))
+    errors.push('The deadline must be a valid date.');
   else if (deadlineMs <= ctx.now.getTime())
     errors.push('The deadline must be in the future.');
   else if (deadlineMs - ctx.now.getTime() > MAX_DEADLINE_DAYS * DAY_MS)
@@ -109,7 +113,9 @@ export function validateFailurePath(
     ? (kind as TriggerKind)
     : null;
   if (!triggerKind)
-    errors.push('The monitoring trigger must be price_below, price_above, date or manual.');
+    errors.push(
+      'The monitoring trigger must be price_below, price_above, date or manual.',
+    );
 
   let triggerLevel: number | null = null;
   if (triggerKind && isPriceTrigger(triggerKind)) {
@@ -120,9 +126,12 @@ export function validateFailurePath(
     else triggerLevel = raw.triggerLevel;
   }
 
-  const note = typeof raw.triggerNote === 'string' ? raw.triggerNote.trim() : '';
+  const note =
+    typeof raw.triggerNote === 'string' ? raw.triggerNote.trim() : '';
   if (note.length < MIN_NOTE || note.length > MAX_NOTE)
-    errors.push(`Describe the trigger in ${MIN_NOTE} to ${MAX_NOTE} characters.`);
+    errors.push(
+      `Describe the trigger in ${MIN_NOTE} to ${MAX_NOTE} characters.`,
+    );
 
   if (errors.length) return { ok: false, errors };
   return {
@@ -145,7 +154,8 @@ export function extractPathObjects(text: string): unknown[] {
   const candidates: string[] = [stripped];
   const first = stripped.indexOf('{');
   const last = stripped.lastIndexOf('}');
-  if (first >= 0 && last > first) candidates.push(stripped.slice(first, last + 1));
+  if (first >= 0 && last > first)
+    candidates.push(stripped.slice(first, last + 1));
   const firstArr = stripped.indexOf('[');
   const lastArr = stripped.lastIndexOf(']');
   if (firstArr >= 0 && lastArr > firstArr)
@@ -220,7 +230,8 @@ export interface PremortemStatus {
 
 /** The gate: every path decided, between 3 and 5 paths, and enough of them kept. */
 export function premortemStatus(paths: StoredPathState[]): PremortemStatus {
-  const count = (d: PathDecision) => paths.filter((p) => p.decision === d).length;
+  const count = (d: PathDecision) =>
+    paths.filter((p) => p.decision === d).length;
   const total = paths.length;
   const pending = count('pending');
   const accepted = count('accepted');
@@ -237,7 +248,11 @@ export function premortemStatus(paths: StoredPathState[]): PremortemStatus {
     blockers.push(
       `${pending} path${pending === 1 ? ' is' : 's are'} still waiting for Accept, Modify or Reject.`,
     );
-  if (pending === 0 && total >= FAILURE_PATH_MIN && accepted + modified < MIN_KEPT_PATHS)
+  if (
+    pending === 0 &&
+    total >= FAILURE_PATH_MIN &&
+    accepted + modified < MIN_KEPT_PATHS
+  )
     blockers.push(
       `Keep at least ${MIN_KEPT_PATHS} paths. Rejecting almost everything leaves no premortem.`,
     );
@@ -290,7 +305,8 @@ export function applyDecision(
     return { ok: true, decision: 'accepted', reason: null, fields: null };
   }
   if (request.action === 'reject') {
-    const reason = typeof request.reason === 'string' ? request.reason.trim() : '';
+    const reason =
+      typeof request.reason === 'string' ? request.reason.trim() : '';
     if (reason.length < MIN_REJECT_REASON)
       return {
         ok: false,
@@ -314,18 +330,29 @@ export function applyDecision(
     if (!changed)
       return {
         ok: false,
-        errors: ['Change at least one field to modify a path, or accept it as written.'],
+        errors: [
+          'Change at least one field to modify a path, or accept it as written.',
+        ],
       };
     const check = validateFailurePath(merged, ctx);
     if (!check.ok) return { ok: false, errors: check.errors };
-    return { ok: true, decision: 'modified', reason: null, fields: check.value };
+    return {
+      ok: true,
+      decision: 'modified',
+      reason: null,
+      fields: check.value,
+    };
   }
   return { ok: false, errors: ['Unknown decision.'] };
 }
 
 export type AdvanceResult =
   | { ok: true; to: ThesisStatus }
-  | { ok: false; code: 'blocked' | 'not_available' | 'out_of_order'; reasons: string[] };
+  | {
+      ok: false;
+      code: 'blocked' | 'not_available' | 'out_of_order';
+      reasons: string[];
+    };
 
 /**
  * Whether a thesis may move from one status to another. Statuses move one step
@@ -347,7 +374,9 @@ export function canAdvance(
     return {
       ok: false,
       code: 'out_of_order',
-      reasons: [`A thesis cannot go from ${from} to ${to}. Stages run in order.`],
+      reasons: [
+        `A thesis cannot go from ${from} to ${to}. Stages run in order.`,
+      ],
     };
   if (to === 'failures_resolved') {
     const status = premortemStatus(paths);
@@ -370,7 +399,9 @@ export function canAdvance(
     return {
       ok: false,
       code: 'blocked',
-      reasons: ['Serve it through the Balance Scale: state the position size and read the risk.'],
+      reasons: [
+        'Serve it through the Balance Scale: state the position size and read the risk.',
+      ],
     };
   if (to === 'sealed')
     return {
@@ -417,29 +448,60 @@ export function evaluateTrigger(
   now: Date,
 ): WatchResult {
   const deadlineMs = Date.parse(path.deadline);
-  if (isPriceTrigger(path.triggerKind) && path.triggerLevel !== null && price !== null) {
+  if (
+    isPriceTrigger(path.triggerKind) &&
+    path.triggerLevel !== null &&
+    price !== null
+  ) {
     const level = path.triggerLevel;
     if (path.triggerKind === 'price_below') {
       if (price <= level)
-        return { state: 'breached', message: `Price ${price} is at or below the ${level} trigger.` };
+        return {
+          state: 'breached',
+          message: `Price ${price} is at or below the ${level} trigger.`,
+        };
       if (price <= level * (1 + APPROACH_BAND) && deadlineMs > now.getTime())
-        return { state: 'approaching', message: `Price ${price} is within ${APPROACH_BAND * 100}% of the ${level} trigger.` };
+        return {
+          state: 'approaching',
+          message: `Price ${price} is within ${APPROACH_BAND * 100}% of the ${level} trigger.`,
+        };
     } else {
       if (price >= level)
-        return { state: 'breached', message: `Price ${price} is at or above the ${level} trigger.` };
+        return {
+          state: 'breached',
+          message: `Price ${price} is at or above the ${level} trigger.`,
+        };
       if (price >= level * (1 - APPROACH_BAND) && deadlineMs > now.getTime())
-        return { state: 'approaching', message: `Price ${price} is within ${APPROACH_BAND * 100}% of the ${level} trigger.` };
+        return {
+          state: 'approaching',
+          message: `Price ${price} is within ${APPROACH_BAND * 100}% of the ${level} trigger.`,
+        };
     }
   }
   if (Number.isFinite(deadlineMs)) {
     if (deadlineMs <= now.getTime())
-      return { state: 'expired', message: 'The deadline has passed without this path being confirmed.' };
-    if (path.triggerKind === 'date' && deadlineMs - now.getTime() <= DATE_WARNING_DAYS * DAY_MS)
-      return { state: 'approaching', message: `The deadline is within ${DATE_WARNING_DAYS} days.` };
+      return {
+        state: 'expired',
+        message: 'The deadline has passed without this path being confirmed.',
+      };
+    if (
+      path.triggerKind === 'date' &&
+      deadlineMs - now.getTime() <= DATE_WARNING_DAYS * DAY_MS
+    )
+      return {
+        state: 'approaching',
+        message: `The deadline is within ${DATE_WARNING_DAYS} days.`,
+      };
   }
   if (path.triggerKind === 'manual')
-    return { state: 'unmonitored', message: 'This trigger is manual. Check it yourself.' };
+    return {
+      state: 'unmonitored',
+      message: 'This trigger is manual. Check it yourself.',
+    };
   if (isPriceTrigger(path.triggerKind) && price === null)
-    return { state: 'unmonitored', message: 'No price is available to check this trigger.' };
+    return {
+      state: 'unmonitored',
+      message: 'No price is available to check this trigger.',
+    };
   return { state: 'clear', message: 'Not triggered.' };
 }

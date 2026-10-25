@@ -31,7 +31,9 @@ describe('Uncle voice', () => {
       'User question: "TSLA vs NVDA?"',
     );
     expect(
-      questionBlock('TSLA vs NVDA?', [{ role: 'user', content: 'TSLA vs NVDA?' }]),
+      questionBlock('TSLA vs NVDA?', [
+        { role: 'user', content: 'TSLA vs NVDA?' },
+      ]),
     ).toBe('User question: "TSLA vs NVDA?"');
   });
 

@@ -13,7 +13,9 @@ import { THESES } from '../src/thesis/deck';
 import type { ThesisSummary } from '../src/thesis/types';
 
 const thesis = THESES[0];
-const summary = (level: ThesisSummary['conviction']['level']): ThesisSummary => ({
+const summary = (
+  level: ThesisSummary['conviction']['level'],
+): ThesisSummary => ({
   id: thesis.id,
   conviction: { level, rising: 3, measured: 4, avgChangePct: 2.5 },
   tickers: [],
@@ -48,7 +50,8 @@ describe('deck model', () => {
       shareText(thesis, summary('weak')),
       shareText(thesis, null),
     ];
-    for (const text of texts) expect(text.toLowerCase()).not.toContain('nansen');
+    for (const text of texts)
+      expect(text.toLowerCase()).not.toContain('nansen');
     expect(buildUncleDraft(thesis, summary('strong'))).toContain('strong');
   });
 

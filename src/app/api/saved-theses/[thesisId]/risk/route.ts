@@ -19,10 +19,16 @@ export async function POST(request: Request, { params }: Ctx) {
   const owner = await resolveOwner(db, request);
   const thesis = await loadOwned(db, owner, thesisId);
   if (!thesis)
-    return Response.json({ error: 'Thesis not found.' }, { status: 404, headers: NO_STORE });
+    return Response.json(
+      { error: 'Thesis not found.' },
+      { status: 404, headers: NO_STORE },
+    );
   if (thesis.status !== 'sealed')
     return Response.json(
-      { error: 'Seal the thesis before reading the Balance Scale.', code: 'out_of_order' },
+      {
+        error: 'Seal the thesis before reading the Balance Scale.',
+        code: 'out_of_order',
+      },
       { status: 409, headers: NO_STORE },
     );
   let body: unknown;
@@ -40,7 +46,10 @@ export async function POST(request: Request, { params }: Ctx) {
   const portfolio = await loadPortfolio(db, owner.key);
   if (!portfolio)
     return Response.json(
-      { error: 'Enter your portfolio first so the risk can be measured.', code: 'no_portfolio' },
+      {
+        error: 'Enter your portfolio first so the risk can be measured.',
+        code: 'no_portfolio',
+      },
       { status: 409, headers: NO_STORE },
     );
   const report = await assessRisk(db, {
@@ -49,5 +58,8 @@ export async function POST(request: Request, { params }: Ctx) {
     portfolio,
     position: position.value,
   });
-  return withOwnerCookie(Response.json({ report }, { headers: NO_STORE }), owner);
+  return withOwnerCookie(
+    Response.json({ report }, { headers: NO_STORE }),
+    owner,
+  );
 }

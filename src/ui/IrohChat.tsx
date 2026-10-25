@@ -21,7 +21,7 @@ type SavedMessage = Pick<ChatMessage, 'role' | 'content' | 'status'> & {
 export function IrohChat({
   session,
   user,
-  research = "bitget",
+  research = 'bitget',
   draft: draftPrefill = null,
 }: {
   session: IrohSession;
@@ -173,7 +173,9 @@ export function IrohChat({
     // A finished answer opens at its first line, so the reader starts at the verdict.
     if (last?.role === 'assistant' && last.content && box && answer) {
       box.scrollTop +=
-        answer.getBoundingClientRect().top - box.getBoundingClientRect().top - 8;
+        answer.getBoundingClientRect().top -
+        box.getBoundingClientRect().top -
+        8;
       return;
     }
     bottom.current?.scrollIntoView({ block: 'end' });
@@ -248,12 +250,7 @@ export function IrohChat({
           Enter your key
         </button>
       )}
-      <a
-        className="iroh-limit-cta"
-        href="#"
-        target="_blank"
-        rel="noreferrer"
-      >
+      <a className="iroh-limit-cta" href="#" target="_blank" rel="noreferrer">
         Bitget docs ↗
       </a>
     </div>
@@ -339,8 +336,8 @@ export function IrohChat({
               </p>
               {(false || hasUserKey) && (
                 <p>
-                  I’ll consult Bitget Research Agent and bring back the
-                  Bitget market evidence.
+                  I’ll consult Bitget Research Agent and bring back the Bitget
+                  market evidence.
                 </p>
               )}
               {research === 'unavailable' && !dailyCap && (

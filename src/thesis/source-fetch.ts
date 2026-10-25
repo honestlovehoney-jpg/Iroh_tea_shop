@@ -13,9 +13,7 @@ export type SourceCheck =
   | { status: 'unreadable'; reason: string };
 
 const hostAllowed = (kind: SourceKind, host: string) =>
-  (SOURCE_HOSTS[kind] ?? []).some(
-    (h) => host === h || host.endsWith(`.${h}`),
-  );
+  (SOURCE_HOSTS[kind] ?? []).some((h) => host === h || host.endsWith(`.${h}`));
 
 /**
  * Fetch a primary-source page and look for the figure the person stated.
@@ -46,10 +44,14 @@ export async function checkPrimarySource(
     };
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    if (current.protocol !== 'https:' || !hostAllowed(kind, current.hostname.toLowerCase()))
+    if (
+      current.protocol !== 'https:' ||
+      !hostAllowed(kind, current.hostname.toLowerCase())
+    )
       return {
         status: 'unreadable',
-        reason: 'The link leads away from the primary source, so it was not followed.',
+        reason:
+          'The link leads away from the primary source, so it was not followed.',
       };
     let response: Response;
     try {
@@ -57,21 +59,31 @@ export async function checkPrimarySource(
         redirect: 'manual',
         headers: {
           'user-agent': agent || 'IrohTeaShop/1.0 (source verification)',
-          accept: 'text/html,text/plain,application/xhtml+xml,application/xml;q=0.9',
+          accept:
+            'text/html,text/plain,application/xhtml+xml,application/xml;q=0.9',
         },
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
     } catch {
-      return { status: 'unreadable', reason: 'The source did not answer in time.' };
+      return {
+        status: 'unreadable',
+        reason: 'The source did not answer in time.',
+      };
     }
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('location');
       if (!location)
-        return { status: 'unreadable', reason: 'The source redirected without a destination.' };
+        return {
+          status: 'unreadable',
+          reason: 'The source redirected without a destination.',
+        };
       try {
         current = new URL(location, current);
       } catch {
-        return { status: 'unreadable', reason: 'The source redirected to an invalid address.' };
+        return {
+          status: 'unreadable',
+          reason: 'The source redirected to an invalid address.',
+        };
       }
       continue;
     }
@@ -84,22 +96,32 @@ export async function checkPrimarySource(
     if (!TEXT_TYPES.test(type))
       return {
         status: 'unreadable',
-        reason: 'The page is not text or HTML (for example a PDF), so it could not be read.',
+        reason:
+          'The page is not text or HTML (for example a PDF), so it could not be read.',
       };
     const declared = Number(response.headers.get('content-length'));
     if (Number.isFinite(declared) && declared > MAX_BYTES)
-      return { status: 'unreadable', reason: 'The page is too large to check.' };
+      return {
+        status: 'unreadable',
+        reason: 'The page is too large to check.',
+      };
 
     const body = await readCapped(response);
     if (body === null)
-      return { status: 'unreadable', reason: 'The page is too large to check.' };
+      return {
+        status: 'unreadable',
+        reason: 'The page is too large to check.',
+      };
     const text = /html|xml/i.test(type) ? htmlToText(body) : body;
     const verification = verifyFigure(valueText, text, label);
     return verification.found
       ? { status: 'verified', verification, finalUrl: current.toString() }
       : { status: 'not_found', finalUrl: current.toString() };
   }
-  return { status: 'unreadable', reason: 'The source redirected too many times.' };
+  return {
+    status: 'unreadable',
+    reason: 'The source redirected too many times.',
+  };
 }
 
 async function readCapped(response: Response): Promise<string | null> {

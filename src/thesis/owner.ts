@@ -4,7 +4,8 @@ import { userFromRequest } from '../iroh/request-user';
 
 export const GUEST_COOKIE = 'iroh_guest';
 const GUEST_MAX_AGE = 365 * 24 * 60 * 60;
-const GUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const GUEST_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface Owner {
   /** "u:<userId>" for a signed-in person, "g:<guestId>" for a guest. */
@@ -32,7 +33,11 @@ export async function resolveOwner(
   if (user) return { key: `u:${user.id}`, signedIn: true, newGuestId: null };
   const guest = cookieValue(request, GUEST_COOKIE);
   if (guest && GUEST_ID.test(guest))
-    return { key: `g:${guest.toLowerCase()}`, signedIn: false, newGuestId: null };
+    return {
+      key: `g:${guest.toLowerCase()}`,
+      signedIn: false,
+      newGuestId: null,
+    };
   const fresh = crypto.randomUUID();
   return { key: `g:${fresh}`, signedIn: false, newGuestId: fresh };
 }

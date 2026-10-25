@@ -11,7 +11,12 @@ import {
   MAX_PROBABILITY,
   MIN_PROBABILITY,
 } from '@/thesis/seal';
-import { NO_STORE, allowGeneration, loadOwned, thesisView } from '@/thesis/store';
+import {
+  NO_STORE,
+  allowGeneration,
+  loadOwned,
+  thesisView,
+} from '@/thesis/store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,7 +37,10 @@ export async function POST(request: Request, { params }: Ctx) {
   const owner = await resolveOwner(db, request);
   const thesis = await loadOwned(db, owner, thesisId);
   if (!thesis)
-    return Response.json({ error: 'Thesis not found.' }, { status: 404, headers: NO_STORE });
+    return Response.json(
+      { error: 'Thesis not found.' },
+      { status: 404, headers: NO_STORE },
+    );
 
   if (thesis.status === 'sealed' || thesis.seal)
     return Response.json(
@@ -77,7 +85,10 @@ export async function POST(request: Request, { params }: Ctx) {
   const latest = closes?.[closes.length - 1];
   if (!closes || !latest)
     return Response.json(
-      { error: 'Bitget returned no price right now, so the seal has no reference. Try again.' },
+      {
+        error:
+          'Bitget returned no price right now, so the seal has no reference. Try again.',
+      },
       { status: 503, headers: NO_STORE },
     );
   const referencePrice = latest.close;
@@ -90,7 +101,11 @@ export async function POST(request: Request, { params }: Ctx) {
     );
 
   // Uncle forecasts first and never sees the person's number.
-  let system: { probability: number; method: 'uncle' | 'base_rate'; rationale: string | null } | null = null;
+  let system: {
+    probability: number;
+    method: 'uncle' | 'base_rate';
+    rationale: string | null;
+  } | null = null;
   try {
     const made = await generateSystemProbability({
       title: thesis.title,
@@ -102,12 +117,22 @@ export async function POST(request: Request, { params }: Ctx) {
       baseRate: rate,
       evidence: thesis.claims
         .filter((c) => c.state !== 'insufficient' && c.valueText)
-        .map((c) => `${c.label}: ${c.valueText} (${c.state === 'observed' ? 'observed' : 'computed'}, ${c.sourceLabel})`),
+        .map(
+          (c) =>
+            `${c.label}: ${c.valueText} (${c.state === 'observed' ? 'observed' : 'computed'}, ${c.sourceLabel})`,
+        ),
       failures: thesis.failurePaths
         .filter((p) => p.decision === 'accepted' || p.decision === 'modified')
-        .map((p) => `${p.condition} (chance ${Math.round(p.probability * 100)}%)`),
+        .map(
+          (p) => `${p.condition} (chance ${Math.round(p.probability * 100)}%)`,
+        ),
     });
-    if (made) system = { probability: made.probability, method: 'uncle', rationale: made.rationale };
+    if (made)
+      system = {
+        probability: made.probability,
+        method: 'uncle',
+        rationale: made.rationale,
+      };
   } catch (error) {
     if (!(error instanceof PremortemUnavailableError)) throw error;
   }
@@ -115,14 +140,21 @@ export async function POST(request: Request, { params }: Ctx) {
     system = {
       probability: Math.min(0.95, Math.max(0.05, rate)),
       method: 'base_rate',
-      rationale: 'Uncle was unavailable, so this is the share of past windows of this length that moved this way.',
+      rationale:
+        'Uncle was unavailable, so this is the share of past windows of this length that moved this way.',
     };
   if (!system)
     return Response.json(
-      { error: 'Uncle could not produce a probability right now, and there is not enough history for a base rate. Try again.' },
+      {
+        error:
+          'Uncle could not produce a probability right now, and there is not enough history for a base rate. Try again.',
+      },
       { status: 503, headers: NO_STORE },
     );
-  const systemProbability = Math.min(MAX_PROBABILITY, Math.max(MIN_PROBABILITY, system.probability));
+  const systemProbability = Math.min(
+    MAX_PROBABILITY,
+    Math.max(MIN_PROBABILITY, system.probability),
+  );
 
   // Move the stage first, so two tabs cannot both seal.
   const sealedAt = new Date();
@@ -164,7 +196,10 @@ export async function POST(request: Request, { params }: Ctx) {
   }
   const fresh = await loadOwned(db, owner, thesis.id);
   return withOwnerCookie(
-    Response.json({ thesis: fresh ? thesisView(fresh) : null }, { status: 201, headers: NO_STORE }),
+    Response.json(
+      { thesis: fresh ? thesisView(fresh) : null },
+      { status: 201, headers: NO_STORE },
+    ),
     owner,
   );
 }

@@ -8,9 +8,11 @@ import { getResearchAvailability } from '../chat/availability';
  */
 export default async function Page() {
   const user = await getCurrentUser();
-  return <TeaRoomShell
+  return (
+    <TeaRoomShell
       key={user?.id ?? 'guest'}
       user={user}
       research={getResearchAvailability()}
-    />;
+    />
+  );
 }

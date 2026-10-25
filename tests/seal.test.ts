@@ -15,14 +15,19 @@ describe('validateSealInput', () => {
   it('accepts a direction, a probability and a horizon', () => {
     expect(validateSealInput(good).ok).toBe(true);
   });
-  it.each([0, 1, 0.005, 1.2, Number.NaN, '0.6'])('rejects probability %s', (probability) => {
-    expect(validateSealInput({ ...good, probability }).ok).toBe(false);
-  });
+  it.each([0, 1, 0.005, 1.2, Number.NaN, '0.6'])(
+    'rejects probability %s',
+    (probability) => {
+      expect(validateSealInput({ ...good, probability }).ok).toBe(false);
+    },
+  );
   it.each([0, 91, 1.5, -3, '7'])('rejects horizon %s', (horizonDays) => {
     expect(validateSealInput({ ...good, horizonDays }).ok).toBe(false);
   });
   it('rejects a missing or unknown direction and non-objects', () => {
-    expect(validateSealInput({ ...good, direction: 'sideways' }).ok).toBe(false);
+    expect(validateSealInput({ ...good, direction: 'sideways' }).ok).toBe(
+      false,
+    );
     expect(validateSealInput(null).ok).toBe(false);
   });
 });
@@ -39,8 +44,12 @@ describe('resolvesAtFor and resolvingClose', () => {
   ];
   it('uses the daily close of the horizon day, and only once that day has ended', () => {
     const at = new Date('2026-11-01T00:00:00Z');
-    expect(resolvingClose(closes, at, new Date('2026-10-31T23:00:00Z'))).toBeNull();
-    expect(resolvingClose(closes, at, new Date('2026-11-01T01:00:00Z'))?.close).toBe(110);
+    expect(
+      resolvingClose(closes, at, new Date('2026-10-31T23:00:00Z')),
+    ).toBeNull();
+    expect(
+      resolvingClose(closes, at, new Date('2026-11-01T01:00:00Z'))?.close,
+    ).toBe(110);
     expect(resolvingClose([], at, new Date('2026-11-02T00:00:00Z'))).toBeNull();
   });
 });
@@ -77,13 +86,22 @@ describe('baseRate', () => {
 
 describe('parseSystemProbability', () => {
   it('reads fenced JSON and percent-style numbers', () => {
-    const a = parseSystemProbability('```json\n{"probability":0.62,"rationale":"Momentum is mixed."}\n```');
+    const a = parseSystemProbability(
+      '```json\n{"probability":0.62,"rationale":"Momentum is mixed."}\n```',
+    );
     expect(a?.probability).toBe(0.62);
-    expect(parseSystemProbability('{"probability":"62","rationale":"x"}')?.probability).toBe(0.62);
+    expect(
+      parseSystemProbability('{"probability":"62","rationale":"x"}')
+        ?.probability,
+    ).toBe(0.62);
   });
   it('rejects certainty, out-of-range values and prose', () => {
-    expect(parseSystemProbability('{"probability":1,"rationale":"x"}')).toBeNull();
-    expect(parseSystemProbability('{"probability":0,"rationale":"x"}')).toBeNull();
+    expect(
+      parseSystemProbability('{"probability":1,"rationale":"x"}'),
+    ).toBeNull();
+    expect(
+      parseSystemProbability('{"probability":0,"rationale":"x"}'),
+    ).toBeNull();
     expect(parseSystemProbability('{"probability":250}')).toBeNull();
     expect(parseSystemProbability('I think it is likely.')).toBeNull();
   });

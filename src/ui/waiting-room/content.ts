@@ -4,12 +4,14 @@ export const BUILDER = {
   bio: 'Solo indie builder working across blockchain, AI agents, and Web3 infrastructure.',
   url: 'https://github.com/TonyLegend-77',
 };
-export const ORIGINAL_REPO_URL = 'https://github.com/White-Lotus-Labs/iroh-tea-shop';
+export const ORIGINAL_REPO_URL =
+  'https://github.com/White-Lotus-Labs/iroh-tea-shop';
 export const REPO_URL = 'https://github.com/honestlovehoney-jpg/Iroh_tea_shop';
 export const PROJECT = {
   name: "Iroh's Tea Shop",
   studio: 'Bitget Reality research desk',
-  tagline: 'Explore the Bitget stock catalog. Ask Uncle to interpret the evidence.',
+  tagline:
+    'Explore the Bitget stock catalog. Ask Uncle to interpret the evidence.',
   summary:
     'Walk through a 3D tea shop powered by Bitget market data and Qwen AI. Search for tokenized US stocks, inspect real-time equity quotes and analyst estimates, and ask Uncle to explain the evidence.',
   steps: [

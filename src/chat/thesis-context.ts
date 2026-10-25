@@ -22,8 +22,9 @@ export async function loadThesisContext(
         setTimeout(() => reject(new Error('timeout')), LOAD_TIMEOUT_MS),
       ),
     ]);
-    const conviction = snapshot.theses.find((item) => item.id === thesis.id)
-      ?.conviction;
+    const conviction = snapshot.theses.find(
+      (item) => item.id === thesis.id,
+    )?.conviction;
     if (conviction && conviction.level !== 'unknown') {
       const avg =
         conviction.avgChangePct === null
@@ -35,7 +36,9 @@ export async function loadThesisContext(
     // The thesis text still helps without the momentum reading.
   }
 
-  const stocks = thesis.tickers.map((t) => `${t.symbol} (${t.name})`).join(', ');
+  const stocks = thesis.tickers
+    .map((t) => `${t.symbol} (${t.name})`)
+    .join(', ');
   const block = `Thesis open on the desk: "${thesis.title}", ${thesis.subtitle}.
 Thesis text: ${thesis.body}
 Stocks in this thesis: ${stocks}

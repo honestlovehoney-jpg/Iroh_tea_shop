@@ -10,13 +10,16 @@ export async function GET(request: Request) {
   const symbol = searchParams.get('symbol');
 
   if (!entryId || !symbol) {
-    return NextResponse.json({ error: 'Missing entryId or symbol' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Missing entryId or symbol' },
+      { status: 400 },
+    );
   }
 
   try {
     // Provenance tracking
     const data = await getEquityData(entryId, { symbol });
-    
+
     return NextResponse.json({
       source: 'bitget_mcp',
       entryId,

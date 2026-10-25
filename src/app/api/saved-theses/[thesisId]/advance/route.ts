@@ -26,7 +26,10 @@ export async function POST(request: Request, { params }: Ctx) {
   const owner = await resolveOwner(db, request);
   const thesis = await loadOwned(db, owner, thesisId);
   if (!thesis)
-    return Response.json({ error: 'Thesis not found.' }, { status: 404, headers: NO_STORE });
+    return Response.json(
+      { error: 'Thesis not found.' },
+      { status: 404, headers: NO_STORE },
+    );
 
   let body: { to?: unknown };
   try {
@@ -36,7 +39,10 @@ export async function POST(request: Request, { params }: Ctx) {
   }
   const to = THESIS_STATUSES.find((s) => s === body.to);
   if (!to)
-    return Response.json({ error: 'Unknown stage.' }, { status: 400, headers: NO_STORE });
+    return Response.json(
+      { error: 'Unknown stage.' },
+      { status: 400, headers: NO_STORE },
+    );
 
   const from = thesis.status as ThesisStatus;
   const verdict = canAdvance(
@@ -47,7 +53,11 @@ export async function POST(request: Request, { params }: Ctx) {
   );
   if (!verdict.ok)
     return Response.json(
-      { error: verdict.reasons[0], code: verdict.code, reasons: verdict.reasons },
+      {
+        error: verdict.reasons[0],
+        code: verdict.code,
+        reasons: verdict.reasons,
+      },
       { status: 409, headers: NO_STORE },
     );
 
@@ -63,7 +73,10 @@ export async function POST(request: Request, { params }: Ctx) {
     );
   const fresh = await loadOwned(db, owner, thesis.id);
   return withOwnerCookie(
-    Response.json({ thesis: fresh ? thesisView(fresh) : null }, { headers: NO_STORE }),
+    Response.json(
+      { thesis: fresh ? thesisView(fresh) : null },
+      { headers: NO_STORE },
+    ),
     owner,
   );
 }

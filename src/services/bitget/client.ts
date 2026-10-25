@@ -23,7 +23,10 @@ type BitgetEnvelope<T> = {
 };
 
 function baseUrl(): string {
-  return (process.env.BITGET_API_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, '');
+  return (process.env.BITGET_API_BASE_URL || DEFAULT_BASE_URL).replace(
+    /\/$/,
+    '',
+  );
 }
 
 async function get<T>(path: string): Promise<BitgetEnvelope<T>> {
@@ -45,7 +48,11 @@ async function get<T>(path: string): Promise<BitgetEnvelope<T>> {
       );
     }
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-      throw new BitgetApiError('Bitget returned an invalid JSON envelope', 'INVALID_ENVELOPE', 502);
+      throw new BitgetApiError(
+        'Bitget returned an invalid JSON envelope',
+        'INVALID_ENVELOPE',
+        502,
+      );
     }
     const envelope = raw as BitgetEnvelope<T>;
     if (envelope.code && envelope.code !== '00000') {
@@ -79,13 +86,20 @@ export async function fetchStockCatalog(): Promise<{
   records: RawStockInfo[];
   requestTime: string | null;
 }> {
-  const envelope = await get<RawStockInfo[]>('/api/v3/reality/market/stock-info');
+  const envelope = await get<RawStockInfo[]>(
+    '/api/v3/reality/market/stock-info',
+  );
   if (!Array.isArray(envelope.data)) {
-    throw new BitgetApiError('Bitget stock catalog data was not an array', 'INVALID_CATALOG', 502);
+    throw new BitgetApiError(
+      'Bitget stock catalog data was not an array',
+      'INVALID_CATALOG',
+      502,
+    );
   }
   return {
     records: envelope.data,
-    requestTime: envelope.requestTime == null ? null : String(envelope.requestTime),
+    requestTime:
+      envelope.requestTime == null ? null : String(envelope.requestTime),
   };
 }
 
@@ -101,11 +115,16 @@ export async function fetchSpotCandles(input: {
     `/api/v2/spot/market/candles?symbol=${symbol}&granularity=${granularity}&limit=${limit}`,
   );
   if (!Array.isArray(envelope.data)) {
-    throw new BitgetApiError('Bitget candle data was not an array', 'INVALID_CANDLES', 502);
+    throw new BitgetApiError(
+      'Bitget candle data was not an array',
+      'INVALID_CANDLES',
+      502,
+    );
   }
   return {
     rows: envelope.data,
-    requestTime: envelope.requestTime == null ? null : String(envelope.requestTime),
+    requestTime:
+      envelope.requestTime == null ? null : String(envelope.requestTime),
   };
 }
 
@@ -120,13 +139,19 @@ export type RawSpotSymbol = {
 export async function fetchSpotSymbols(): Promise<RawSpotSymbol[]> {
   const envelope = await get<RawSpotSymbol[]>('/api/v2/spot/public/symbols');
   if (!Array.isArray(envelope.data)) {
-    throw new BitgetApiError('Bitget spot symbol data was not an array', 'INVALID_SYMBOLS', 502);
+    throw new BitgetApiError(
+      'Bitget spot symbol data was not an array',
+      'INVALID_SYMBOLS',
+      502,
+    );
   }
   return envelope.data;
 }
 
 /** Public 24h ticker for one spot pair, passed through as Bitget returns it. */
-export async function fetchSpotTicker(symbol: string): Promise<Record<string, unknown> | null> {
+export async function fetchSpotTicker(
+  symbol: string,
+): Promise<Record<string, unknown> | null> {
   const envelope = await get<Array<Record<string, unknown>>>(
     `/api/v2/spot/market/tickers?symbol=${encodeURIComponent(symbol)}`,
   );

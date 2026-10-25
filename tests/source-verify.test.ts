@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { htmlToText, numberTokens, verifyFigure } from '../src/thesis/source-verify';
+import {
+  htmlToText,
+  numberTokens,
+  verifyFigure,
+} from '../src/thesis/source-verify';
 
 const filler = ' lorem ipsum dolor '.repeat(60);
 const page = htmlToText(
@@ -36,7 +40,9 @@ describe('verifyFigure', () => {
   });
 
   it('does not accept a number that is a prefix of a different one', () => {
-    expect(verifyFigure('$12.4 billion', 'sales were 12.45 billion', 'sales').found).toBe(false);
+    expect(
+      verifyFigure('$12.4 billion', 'sales were 12.45 billion', 'sales').found,
+    ).toBe(false);
     expect(verifyFigure('109', page, 'services').found).toBe(false);
   });
 

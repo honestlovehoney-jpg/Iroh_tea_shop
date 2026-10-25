@@ -51,12 +51,15 @@ async function mapLimit<T, R>(
 ): Promise<R[]> {
   const results = new Array<R>(items.length);
   let next = 0;
-  const lanes = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) {
-      const index = next++;
-      results[index] = await work(items[index]);
-    }
-  });
+  const lanes = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      while (next < items.length) {
+        const index = next++;
+        results[index] = await work(items[index]);
+      }
+    },
+  );
   await Promise.all(lanes);
   return results;
 }
@@ -131,7 +134,8 @@ async function buildSnapshot(): Promise<DeckSnapshot> {
 
 /** One shared snapshot per minute; concurrent callers share one build. */
 export async function loadDeckSnapshot(): Promise<DeckSnapshot> {
-  if (cached && Date.now() - cached.at < SNAPSHOT_TTL_MS) return cached.snapshot;
+  if (cached && Date.now() - cached.at < SNAPSHOT_TTL_MS)
+    return cached.snapshot;
   inflight ??= buildSnapshot()
     .then((snapshot) => {
       cached = { at: Date.now(), snapshot };
@@ -199,7 +203,10 @@ async function loadQuote(symbol: string): Promise<Section<QuoteEvidence>> {
       },
     };
   } catch {
-    return { status: 'unavailable', reason: 'Bitget MCP did not return a quote.' };
+    return {
+      status: 'unavailable',
+      reason: 'Bitget MCP did not return a quote.',
+    };
   }
 }
 

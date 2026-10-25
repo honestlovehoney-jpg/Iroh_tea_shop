@@ -8,7 +8,9 @@ export interface LastPrice {
 }
 
 /** The latest Bitget hourly close for an instrument, or null when Bitget has nothing usable. */
-export async function lastPrice(instrumentId: string): Promise<LastPrice | null> {
+export async function lastPrice(
+  instrumentId: string,
+): Promise<LastPrice | null> {
   try {
     const signal = await getCandles({
       instrumentId,
@@ -33,20 +35,35 @@ export interface DailyClose {
 }
 
 /** Up to 30 daily Bitget closes for an instrument, or null when Bitget has none. */
-export async function dailyCloses(instrumentId: string): Promise<DailyClose[] | null> {
+export async function dailyCloses(
+  instrumentId: string,
+): Promise<DailyClose[] | null> {
   try {
-    const signal = await getCandles({ instrumentId, granularity: '1day', limit: 30 });
+    const signal = await getCandles({
+      instrumentId,
+      granularity: '1day',
+      limit: 30,
+    });
     if (!signal.value?.length) return null;
-    return signal.value.map((c) => ({ timestamp: c.timestamp, close: c.close }));
+    return signal.value.map((c) => ({
+      timestamp: c.timestamp,
+      close: c.close,
+    }));
   } catch {
     return null;
   }
 }
 
 /** Up to 100 daily Bitget candles, oldest first. The newest may still be forming. */
-export async function dailyCandles100(instrumentId: string): Promise<DailyClose[] | null> {
+export async function dailyCandles100(
+  instrumentId: string,
+): Promise<DailyClose[] | null> {
   try {
-    const signal = await getCandles({ instrumentId, granularity: '1day', limit: 100 });
+    const signal = await getCandles({
+      instrumentId,
+      granularity: '1day',
+      limit: 100,
+    });
     if (!signal.value?.length) return null;
     return [...signal.value]
       .map((c) => ({ timestamp: c.timestamp, close: c.close }))

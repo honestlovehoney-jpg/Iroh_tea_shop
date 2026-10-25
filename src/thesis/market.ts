@@ -39,7 +39,9 @@ export function summarizeMarket(rows: MarketRow[]): MarketSummary {
     (a, b) => (b.dayChangePct as number) - (a.dayChangePct as number),
   );
   const pick = (row: MarketRow | undefined) =>
-    row ? { symbol: row.symbol, dayChangePct: row.dayChangePct as number } : null;
+    row
+      ? { symbol: row.symbol, dayChangePct: row.dayChangePct as number }
+      : null;
   return {
     measured: ok.length,
     risingToday: day.filter((row) => (row.dayChangePct as number) > 0).length,

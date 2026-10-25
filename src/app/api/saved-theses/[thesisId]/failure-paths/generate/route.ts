@@ -12,7 +12,12 @@ import {
   PremortemUnavailableError,
   generateFailurePaths,
 } from '@/thesis/qwen-premortem';
-import { NO_STORE, allowGeneration, loadOwned, thesisView } from '@/thesis/store';
+import {
+  NO_STORE,
+  allowGeneration,
+  loadOwned,
+  thesisView,
+} from '@/thesis/store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,7 +37,10 @@ export async function POST(request: Request, { params }: Ctx) {
   const owner = await resolveOwner(db, request);
   const thesis = await loadOwned(db, owner, thesisId);
   if (!thesis)
-    return Response.json({ error: 'Thesis not found.' }, { status: 404, headers: NO_STORE });
+    return Response.json(
+      { error: 'Thesis not found.' },
+      { status: 404, headers: NO_STORE },
+    );
   if (!pathsEditable(thesis.status as ThesisStatus))
     return Response.json(
       { error: 'The Failure Table is signed off and cannot change.' },
@@ -51,12 +59,17 @@ export async function POST(request: Request, { params }: Ctx) {
     );
   if (!allowGeneration(owner.key))
     return Response.json(
-      { error: 'Uncle needs a rest. Try again in a while, or write your own paths.' },
+      {
+        error:
+          'Uncle needs a rest. Try again in a while, or write your own paths.',
+      },
       { status: 429, headers: NO_STORE },
     );
 
   const now = new Date();
-  const price = thesis.instrumentId ? await lastPrice(thesis.instrumentId) : null;
+  const price = thesis.instrumentId
+    ? await lastPrice(thesis.instrumentId)
+    : null;
   let generated;
   try {
     generated = await generateFailurePaths({
@@ -66,12 +79,18 @@ export async function POST(request: Request, { params }: Ctx) {
       lastClose: price ? { price: price.price, asOf: price.asOf } : null,
       wanted,
       minimum: Math.max(1, FAILURE_PATH_MIN - decided.length),
-      ctx: { now, hasInstrument: thesis.instrumentId !== null && price !== null },
+      ctx: {
+        now,
+        hasInstrument: thesis.instrumentId !== null && price !== null,
+      },
       existing: decided.map((p) => p.condition),
     });
   } catch (error) {
     if (error instanceof PremortemUnavailableError)
-      return Response.json({ error: error.message }, { status: error.status, headers: NO_STORE });
+      return Response.json(
+        { error: error.message },
+        { status: error.status, headers: NO_STORE },
+      );
     return Response.json(
       { error: 'Uncle could not write failure paths right now.' },
       { status: 502, headers: NO_STORE },

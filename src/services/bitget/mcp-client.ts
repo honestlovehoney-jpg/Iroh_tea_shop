@@ -9,18 +9,18 @@ let activeSessionId: string | null = null;
 function parseSSE(responseText: string): any {
   const lines = responseText.split('\n');
   let jsonData = '';
-  
+
   for (const line of lines) {
     if (line.startsWith('data:')) {
       jsonData = line.replace('data:', '').trim();
       break;
     }
   }
-  
+
   if (!jsonData) {
     throw new Error('No data field found in SSE response');
   }
-  
+
   return JSON.parse(jsonData);
 }
 
@@ -35,7 +35,7 @@ async function getSessionId(): Promise<string> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Accept': 'application/json, text/event-stream', // <-- FIXED HERE
+      Accept: 'application/json, text/event-stream', // <-- FIXED HERE
     },
     body: JSON.stringify({
       jsonrpc: '2.0',
@@ -72,13 +72,16 @@ export async function callMcpTool(toolName: string, arguments_: any) {
   const sessionId = await getSessionId();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Accept': 'application/json, text/event-stream', // <-- FIXED HERE
+    Accept: 'application/json, text/event-stream', // <-- FIXED HERE
   };
   if (sessionId !== 'stateless') {
     headers['mcp-session-id'] = sessionId;
   }
 
-  console.log(`[MCP] Calling tool: ${toolName} with args:`, JSON.stringify(arguments_));
+  console.log(
+    `[MCP] Calling tool: ${toolName} with args:`,
+    JSON.stringify(arguments_),
+  );
 
   const response = await fetch(MCP_ENDPOINT, {
     method: 'POST',
@@ -96,19 +99,21 @@ export async function callMcpTool(toolName: string, arguments_: any) {
 
   const responseText = await response.text();
   console.log(`[MCP] Raw response status: ${response.status}`);
-  
+
   if (!response.ok) {
-    throw new Error(`MCP Tool call failed: ${response.status} - ${responseText}`);
+    throw new Error(
+      `MCP Tool call failed: ${response.status} - ${responseText}`,
+    );
   }
 
   try {
     const data = parseSSE(responseText);
     console.log('[MCP] Parsed SSE successfully');
-    
+
     if (data.error) {
       throw new Error(`MCP Error: ${JSON.stringify(data.error)}`);
     }
-    
+
     return data.result?.content?.[0]?.text || data.result || data;
   } catch (parseError) {
     console.error('[MCP] SSE parse failed, trying raw JSON:', parseError);
@@ -116,7 +121,9 @@ export async function callMcpTool(toolName: string, arguments_: any) {
       const data = JSON.parse(responseText);
       return data.result?.content?.[0]?.text || data.result;
     } catch {
-      throw new Error(`Failed to parse MCP response: ${responseText.substring(0, 200)}`);
+      throw new Error(
+        `Failed to parse MCP response: ${responseText.substring(0, 200)}`,
+      );
     }
   }
 }

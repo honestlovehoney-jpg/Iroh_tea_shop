@@ -30,7 +30,9 @@ export interface Portfolio {
   holdings: Holding[];
 }
 
-export type Validation<T> = { ok: true; value: T } | { ok: false; errors: string[] };
+export type Validation<T> =
+  | { ok: true; value: T }
+  | { ok: false; errors: string[] };
 
 const money = (v: unknown): v is number =>
   typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1e12;
@@ -54,7 +56,11 @@ export function validatePortfolio(input: unknown): Validation<Portfolio> {
   const marginUsedUsd = optional(raw.marginUsedUsd, 'Margin used');
   if (marginUsedUsd !== null && collateralUsd === null)
     errors.push('Margin used needs the collateral it is measured against.');
-  if (collateralUsd !== null && marginUsedUsd !== null && marginUsedUsd > collateralUsd)
+  if (
+    collateralUsd !== null &&
+    marginUsedUsd !== null &&
+    marginUsedUsd > collateralUsd
+  )
     errors.push('Margin used cannot be more than the collateral.');
 
   const holdings: Holding[] = [];
@@ -65,8 +71,13 @@ export function validatePortfolio(input: unknown): Validation<Portfolio> {
       errors.push(`You can list up to ${MAX_HOLDINGS} holdings.`);
     for (const item of raw.holdings.slice(0, MAX_HOLDINGS)) {
       const h = item as Record<string, unknown>;
-      const symbol = typeof h?.symbol === 'string' ? h.symbol.trim().toUpperCase() : '';
-      if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(symbol) || !money(h?.valueUsd) || h.valueUsd <= 0) {
+      const symbol =
+        typeof h?.symbol === 'string' ? h.symbol.trim().toUpperCase() : '';
+      if (
+        !/^[A-Z][A-Z0-9.\-]{0,9}$/.test(symbol) ||
+        !money(h?.valueUsd) ||
+        h.valueUsd <= 0
+      ) {
         errors.push('Each holding needs a symbol and a value above 0.');
         break;
       }
@@ -81,7 +92,12 @@ export function validatePortfolio(input: unknown): Validation<Portfolio> {
   if (errors.length) return { ok: false, errors };
   return {
     ok: true,
-    value: { totalUsd: raw.totalUsd as number, collateralUsd, marginUsedUsd, holdings },
+    value: {
+      totalUsd: raw.totalUsd as number,
+      collateralUsd,
+      marginUsedUsd,
+      holdings,
+    },
   };
 }
 
@@ -97,11 +113,23 @@ export function validatePosition(input: unknown): Validation<PositionInput> {
   const errors: string[] = [];
   if (!money(raw.plannedUsd) || raw.plannedUsd <= 0)
     errors.push('Position size must be a number above 0.');
-  const leverage = raw.leverage === undefined || raw.leverage === null ? 1 : raw.leverage;
-  if (typeof leverage !== 'number' || !Number.isFinite(leverage) || leverage < 1 || leverage > MAX_LEVERAGE)
+  const leverage =
+    raw.leverage === undefined || raw.leverage === null ? 1 : raw.leverage;
+  if (
+    typeof leverage !== 'number' ||
+    !Number.isFinite(leverage) ||
+    leverage < 1 ||
+    leverage > MAX_LEVERAGE
+  )
     errors.push(`Leverage must be from 1 to ${MAX_LEVERAGE}.`);
   if (errors.length) return { ok: false, errors };
-  return { ok: true, value: { plannedUsd: raw.plannedUsd as number, leverage: leverage as number } };
+  return {
+    ok: true,
+    value: {
+      plannedUsd: raw.plannedUsd as number,
+      leverage: leverage as number,
+    },
+  };
 }
 
 export interface Close {
@@ -118,7 +146,10 @@ export function dailyReturns(closes: Close[]): Map<string, number> {
     .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
   const out = new Map<string, number>();
   for (let i = 1; i < sorted.length; i++)
-    out.set(dayKey(sorted[i].timestamp), sorted[i].close / sorted[i - 1].close - 1);
+    out.set(
+      dayKey(sorted[i].timestamp),
+      sorted[i].close / sorted[i - 1].close - 1,
+    );
   return out;
 }
 
@@ -220,7 +251,9 @@ export function computeRisk(input: RiskInput): RiskReport {
   });
 
   // 2. Correlation with what you hold
-  const others = portfolio.holdings.filter((h) => h.symbol !== symbol.toUpperCase());
+  const others = portfolio.holdings.filter(
+    (h) => h.symbol !== symbol.toUpperCase(),
+  );
   let weighted = 0;
   let measuredWeight = 0;
   const unmeasured: string[] = [];
@@ -241,7 +274,8 @@ export function computeRisk(input: RiskInput): RiskReport {
       label: 'Correlation',
       level: 'ok',
       value: null,
-      message: 'You hold nothing else, so there is nothing for it to move with.',
+      message:
+        'You hold nothing else, so there is nothing for it to move with.',
     });
   else if (measuredWeight === 0)
     metrics.push({
@@ -255,8 +289,16 @@ export function computeRisk(input: RiskInput): RiskReport {
     const avg = weighted / measuredWeight;
     const weightShare = measuredWeight / total;
     let lv: RiskLevel = 'ok';
-    if (avg >= THRESHOLDS.correlation.block && weightShare >= THRESHOLDS.correlation.blockMinWeight) lv = 'block';
-    else if (avg >= THRESHOLDS.correlation.warn && weightShare >= THRESHOLDS.correlation.minWeight) lv = 'warn';
+    if (
+      avg >= THRESHOLDS.correlation.block &&
+      weightShare >= THRESHOLDS.correlation.blockMinWeight
+    )
+      lv = 'block';
+    else if (
+      avg >= THRESHOLDS.correlation.warn &&
+      weightShare >= THRESHOLDS.correlation.minWeight
+    )
+      lv = 'warn';
     metrics.push({
       key: 'correlation',
       label: 'Correlation',
@@ -305,7 +347,10 @@ export function computeRisk(input: RiskInput): RiskReport {
     metrics.push({
       key: 'margin',
       label: 'Funding',
-      level: cash <= 0 || marginNeeded > cash ? 'block' : level(util, THRESHOLDS.margin),
+      level:
+        cash <= 0 || marginNeeded > cash
+          ? 'block'
+          : level(util, THRESHOLDS.margin),
       value: cash <= 0 ? null : util,
       message:
         cash <= 0
@@ -314,7 +359,9 @@ export function computeRisk(input: RiskInput): RiskReport {
     });
   }
 
-  const needsAck = metrics.filter((m) => m.level === 'warn' || m.level === 'block').map((m) => m.key);
+  const needsAck = metrics
+    .filter((m) => m.level === 'warn' || m.level === 'block')
+    .map((m) => m.key);
   const hasBlock = metrics.some((m) => m.level === 'block');
   return {
     metrics,
@@ -332,16 +379,25 @@ export interface LockRequest {
 }
 
 export type LockDecision =
-  | { ok: true; verdict: 'clear' | 'warn' | 'override'; overrideReason: string | null }
+  | {
+      ok: true;
+      verdict: 'clear' | 'warn' | 'override';
+      overrideReason: string | null;
+    }
   | { ok: false; errors: string[] };
 
 /**
  * May this thesis be locked? Every warned or blocked metric must be
  * acknowledged by name. A hard block also needs a reason, which is kept.
  */
-export function decideLock(report: RiskReport, request: LockRequest): LockDecision {
+export function decideLock(
+  report: RiskReport,
+  request: LockRequest,
+): LockDecision {
   const errors: string[] = [];
-  const missing = report.needsAck.filter((k) => !request.acknowledged.includes(k));
+  const missing = report.needsAck.filter(
+    (k) => !request.acknowledged.includes(k),
+  );
   if (missing.length)
     errors.push(`Acknowledge the risk on: ${missing.join(', ')}.`);
   const reason = request.overrideReason.trim();
@@ -352,7 +408,11 @@ export function decideLock(report: RiskReport, request: LockRequest): LockDecisi
   if (errors.length) return { ok: false, errors };
   return {
     ok: true,
-    verdict: report.hasBlock ? 'override' : report.verdict === 'warn' ? 'warn' : 'clear',
+    verdict: report.hasBlock
+      ? 'override'
+      : report.verdict === 'warn'
+        ? 'warn'
+        : 'clear',
     overrideReason: report.hasBlock ? reason : null,
   };
 }

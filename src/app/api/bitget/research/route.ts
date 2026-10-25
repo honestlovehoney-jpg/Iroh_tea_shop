@@ -3,13 +3,21 @@ import { lockAnswer } from '@/thesis/answer-lock';
 import { usMarketOpen } from '@/thesis/evidence';
 import { db } from '@/auth/db';
 import { loadThesisContext } from '@/chat/thesis-context';
-import { UNCLE_VOICE, questionBlock, sanitizePriorMessages } from '@/chat/uncle-voice';
+import {
+  UNCLE_VOICE,
+  questionBlock,
+  sanitizePriorMessages,
+} from '@/chat/uncle-voice';
 import { loadDeckSnapshot } from '@/thesis/bitget-deck';
 import { callMcpTool, getEquityData } from '@/services/bitget/mcp-client';
 import { fetchSpotCandles, fetchSpotTicker } from '@/services/bitget/client';
 import { normalizeCandleRows } from '@/services/bitget/candle-normalizer';
 import { findCryptoMentions, findMentions } from '@/services/bitget/mentions';
-import { getCryptoEvidence, loadSpotBases, weeklyChange } from '@/services/bitget/crypto';
+import {
+  getCryptoEvidence,
+  loadSpotBases,
+  weeklyChange,
+} from '@/services/bitget/crypto';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,11 +59,16 @@ const ENTRY_PARAMS: Record<string, Record<string, unknown>> = {
   equity_fundamental_ratios: { limit: 1 },
 };
 
-type CatalogRow = { underlyingTicker: string | null; companyName: string | null; symbol: string };
+type CatalogRow = {
+  underlyingTicker: string | null;
+  companyName: string | null;
+  symbol: string;
+};
 let catalogCache: { at: number; rows: CatalogRow[] } | null = null;
 
 async function loadCatalog(): Promise<CatalogRow[]> {
-  if (catalogCache && Date.now() - catalogCache.at < CATALOG_TTL_MS) return catalogCache.rows;
+  if (catalogCache && Date.now() - catalogCache.at < CATALOG_TTL_MS)
+    return catalogCache.rows;
   const rows = await db.bitgetAsset.findMany({
     select: { underlyingTicker: true, companyName: true, symbol: true },
   });
@@ -65,7 +78,10 @@ async function loadCatalog(): Promise<CatalogRow[]> {
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Timed out after ${ms} ms`)), ms);
+    const timer = setTimeout(
+      () => reject(new Error(`Timed out after ${ms} ms`)),
+      ms,
+    );
     promise.then(
       (value) => {
         clearTimeout(timer);
@@ -87,7 +103,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  */
 function makeLimiter(limit: number) {
   let active = 0;
-  const waiters: Array<{ run: () => void; cancelled: boolean; granted: boolean }> = [];
+  const waiters: Array<{
+    run: () => void;
+    cancelled: boolean;
+    granted: boolean;
+  }> = [];
 
   function release() {
     while (waiters.length) {
@@ -120,7 +140,10 @@ function makeLimiter(limit: number) {
       }
     }
     try {
-      return await withTimeout(fn(), Math.max(1000, ms - (Date.now() - started)));
+      return await withTimeout(
+        fn(),
+        Math.max(1000, ms - (Date.now() - started)),
+      );
     } finally {
       release();
     }
@@ -170,19 +193,29 @@ function withHedge<T>(call: () => Promise<T>, hedgeMs: number): Promise<T> {
   });
 }
 
-const historyCache = new Map<string, { at: number; closes: Map<string, number> }>();
+const historyCache = new Map<
+  string,
+  { at: number; closes: Map<string, number> }
+>();
 
 /** Daily closes keyed by UTC date, from Bitget spot candles (works for rTokens and coins). */
-async function loadCloses(spotSymbol: string): Promise<Map<string, number> | null> {
+async function loadCloses(
+  spotSymbol: string,
+): Promise<Map<string, number> | null> {
   const hit = historyCache.get(spotSymbol);
   if (hit && Date.now() - hit.at < HISTORY_TTL_MS) return hit.closes;
   try {
     const { rows } = await withTimeout(
-      fetchSpotCandles({ symbol: spotSymbol, granularity: '1day', limit: HISTORY_DAYS }),
+      fetchSpotCandles({
+        symbol: spotSymbol,
+        granularity: '1day',
+        limit: HISTORY_DAYS,
+      }),
       SPOT_TIMEOUT_MS,
     );
     const closes = new Map<string, number>();
-    for (const candle of normalizeCandleRows(rows)) closes.set(candle.timestamp.slice(0, 10), candle.close);
+    for (const candle of normalizeCandleRows(rows))
+      closes.set(candle.timestamp.slice(0, 10), candle.close);
     if (closes.size < 10) return null;
     historyCache.set(spotSymbol, { at: Date.now(), closes });
     return closes;
@@ -192,7 +225,9 @@ async function loadCloses(spotSymbol: string): Promise<Map<string, number> | nul
 }
 
 function dayBefore(date: string, days: number): string {
-  return new Date(Date.parse(`${date}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
+  return new Date(Date.parse(`${date}T00:00:00Z`) - days * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
 }
 
 /** Percent change over every rolling seven-day window, keyed by the window's end date. */
@@ -213,7 +248,8 @@ function quantile(sorted: number[], q: number): number | null {
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
 }
 
-const r2 = (value: number | null) => (value === null ? null : Math.round(value * 100) / 100);
+const r2 = (value: number | null) =>
+  value === null ? null : Math.round(value * 100) / 100;
 
 function assetHistory(weekly: Map<string, number>) {
   const values = [...weekly.values()].sort((a, b) => a - b);
@@ -238,10 +274,13 @@ function pairHistory(a: Map<string, number>, b: Map<string, number>) {
   const values = spreads.map((item) => item.spread);
   const sorted = [...values].sort((x, y) => x - y);
   const independent: number[] = [];
-  for (let i = spreads.length - 1; i >= 0; i -= 7) independent.push(spreads[i].spread);
+  for (let i = spreads.length - 1; i >= 0; i -= 7)
+    independent.push(spreads[i].spread);
   return {
     windows: values.length,
-    firstBeatsSecondPct: Math.round((values.filter((v) => v > 0).length / values.length) * 100),
+    firstBeatsSecondPct: Math.round(
+      (values.filter((v) => v > 0).length / values.length) * 100,
+    ),
     medianSpreadPts: r2(quantile(sorted, 0.5)),
     worstSpreadPts: r2(sorted[0]),
     bestSpreadPts: r2(sorted[sorted.length - 1]),
@@ -260,14 +299,18 @@ function parseMaybeJson(raw: unknown): unknown {
 }
 
 function num(value: unknown): number | null {
-  const parsed = typeof value === 'string' || typeof value === 'number' ? Number(value) : NaN;
+  const parsed =
+    typeof value === 'string' || typeof value === 'number'
+      ? Number(value)
+      : NaN;
   return Number.isFinite(parsed) ? parsed : null;
 }
 
 /** Keep only the fields Uncle needs from the underlying US stock quote. */
 function slimQuote(raw: unknown) {
-  const row = (raw as { data?: { results?: Array<Record<string, unknown>> } } | null)?.data
-    ?.results?.[0];
+  const row = (
+    raw as { data?: { results?: Array<Record<string, unknown>> } } | null
+  )?.data?.results?.[0];
   if (!row) return null;
   return {
     last_price: num(row.last_price),
@@ -282,10 +325,14 @@ function slimQuote(raw: unknown) {
 function slimExtra(raw: unknown): string | null {
   const parsed = parseMaybeJson(raw) as { data?: { results?: unknown } } | null;
   const results = parsed?.data?.results;
-  const body = Array.isArray(results) ? results.slice(0, 3) : (parsed?.data ?? parsed);
+  const body = Array.isArray(results)
+    ? results.slice(0, 3)
+    : (parsed?.data ?? parsed);
   if (body === null || body === undefined) return null;
   const text = typeof body === 'string' ? body : JSON.stringify(body);
-  return text.length > EXTRA_MAX_CHARS ? `${text.slice(0, EXTRA_MAX_CHARS)}...` : text;
+  return text.length > EXTRA_MAX_CHARS
+    ? `${text.slice(0, EXTRA_MAX_CHARS)}...`
+    : text;
 }
 
 /** Approximate US cash-session check in New York time. Holidays are not handled. */
@@ -297,7 +344,8 @@ function usMarketOpenNow(now = new Date()): boolean {
     minute: 'numeric',
     hour12: false,
   }).formatToParts(now);
-  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  const get = (type: string) =>
+    parts.find((part) => part.type === type)?.value ?? '';
   const weekday = get('weekday');
   if (weekday === 'Sat' || weekday === 'Sun') return false;
   const minutes = (Number(get('hour')) % 24) * 60 + Number(get('minute'));
@@ -307,7 +355,10 @@ function usMarketOpenNow(now = new Date()): boolean {
 type ExtraResult = { entry: string; data: string | null; error: string | null };
 const extraCache = new Map<string, { at: number; data: string }>();
 
-async function fetchExtra(entryId: string, ticker: string): Promise<ExtraResult> {
+async function fetchExtra(
+  entryId: string,
+  ticker: string,
+): Promise<ExtraResult> {
   const key = `${entryId}:${ticker}`;
   const hit = extraCache.get(key);
   if (hit && Date.now() - hit.at < EXTRA_CACHE_TTL_MS) {
@@ -315,7 +366,11 @@ async function fetchExtra(entryId: string, ticker: string): Promise<ExtraResult>
   }
   try {
     const raw = await mcpExtras(
-      () => getEquityData(entryId, { symbol: ticker, ...(ENTRY_PARAMS[entryId] ?? {}) }),
+      () =>
+        getEquityData(entryId, {
+          symbol: ticker,
+          ...(ENTRY_PARAMS[entryId] ?? {}),
+        }),
       ENTRY_TIMEOUT_MS[entryId] ?? EXTRA_TIMEOUT_MS,
     );
     const summary = slimExtra(raw);
@@ -323,7 +378,11 @@ async function fetchExtra(entryId: string, ticker: string): Promise<ExtraResult>
       if (extraCache.size > 400) extraCache.clear();
       extraCache.set(key, { at: Date.now(), data: summary });
     }
-    return { entry: entryId, data: summary, error: summary ? null : 'Empty result' };
+    return {
+      entry: entryId,
+      data: summary,
+      error: summary ? null : 'Empty result',
+    };
   } catch (err) {
     return {
       entry: entryId,
@@ -338,12 +397,18 @@ async function fetchExtra(entryId: string, ticker: string): Promise<ExtraResult>
  * the cache, so the next question about the same stock gets it instantly.
  */
 async function softExtras(ticker: string): Promise<ExtraResult[]> {
-  const late = new Promise<'late'>((resolve) => setTimeout(() => resolve('late'), EXTRAS_SOFT_MS));
+  const late = new Promise<'late'>((resolve) =>
+    setTimeout(() => resolve('late'), EXTRAS_SOFT_MS),
+  );
   return Promise.all(
     EXTRA_ENTRIES.map(async (entry) => {
       const result = await Promise.race([fetchExtra(entry, ticker), late]);
       if (result === 'late') {
-        return { entry, data: null, error: 'Still loading, cached for the next question' };
+        return {
+          entry,
+          data: null,
+          error: 'Still loading, cached for the next question',
+        };
       }
       return result;
     }),
@@ -358,7 +423,8 @@ let moodCache: {
 
 /** Market-wide fear and greed readings from free Bitget MCP sentiment entries. */
 async function loadMarketMood() {
-  if (moodCache && Date.now() - moodCache.at < MOOD_TTL_MS) return moodCache.data;
+  if (moodCache && Date.now() - moodCache.at < MOOD_TTL_MS)
+    return moodCache.data;
   const read = (entry: string, params: Record<string, unknown>) =>
     mcpExtras(() => getEquityData(entry, params), EXTRA_TIMEOUT_MS).then(
       (raw) => slimExtra(raw),
@@ -369,7 +435,8 @@ async function loadMarketMood() {
     read('crypto_sentiment_crypto_fear_greed', { limit: 1 }),
   ]);
   const data = { usMarketFearGreed, cryptoFearGreed };
-  if (usMarketFearGreed || cryptoFearGreed) moodCache = { at: Date.now(), data };
+  if (usMarketFearGreed || cryptoFearGreed)
+    moodCache = { at: Date.now(), data };
   return data;
 }
 
@@ -394,30 +461,53 @@ export async function POST(request: Request) {
     // Protected helper: list what the Bitget MCP guide says about news and sentiment entries.
     if (body.discover) {
       const token = process.env.BITGET_CATALOG_SYNC_TOKEN;
-      if (!token || request.headers.get('authorization') !== `Bearer ${token}`) {
+      if (
+        !token ||
+        request.headers.get('authorization') !== `Bearer ${token}`
+      ) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
       const attempt = async (args: Record<string, unknown>) => {
         try {
-          return { args, result: parseMaybeJson(await withTimeout(callMcpTool('guide', args), 10_000)) };
+          return {
+            args,
+            result: parseMaybeJson(
+              await withTimeout(callMcpTool('guide', args), 10_000),
+            ),
+          };
         } catch (err) {
-          return { args, error: err instanceof Error ? err.message : String(err) };
+          return {
+            args,
+            error: err instanceof Error ? err.message : String(err),
+          };
         }
       };
-      const probeLabels = (Array.isArray(body.probeLabels) ? body.probeLabels : [])
+      const probeLabels = (
+        Array.isArray(body.probeLabels) ? body.probeLabels : []
+      )
         .map(Number)
         .filter((n) => Number.isInteger(n))
         .slice(0, 10);
       const probe = async (label: number) => {
         try {
           const raw = await withTimeout(
-            getEquityData('news_label_search', { label, page: 1, page_size: 3 }),
+            getEquityData('news_label_search', {
+              label,
+              page: 1,
+              page_size: 3,
+            }),
             10_000,
           );
           const text = JSON.stringify(parseMaybeJson(raw));
-          return { label, result: text.length > 1500 ? `${text.slice(0, 1500)}...` : text };
+          return {
+            label,
+            result: text.length > 1500 ? `${text.slice(0, 1500)}...` : text,
+          };
         } catch (err) {
-          return { label, error: err instanceof Error ? err.message : String(err) };
+          return {
+            label,
+            error: err instanceof Error ? err.message : String(err),
+          };
         }
       };
       const out = await Promise.all([
@@ -434,7 +524,10 @@ export async function POST(request: Request) {
 
     const question = body.question?.trim();
     if (!question) {
-      return NextResponse.json({ error: 'Question is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Question is required' },
+        { status: 400 },
+      );
     }
 
     const hints = (body.symbol ?? '')
@@ -482,10 +575,17 @@ export async function POST(request: Request) {
       const wantExtras = index < EXTRA_STOCK_LIMIT;
       const [quote, week, tk, extras] = await Promise.all([
         withHedge(
-          () => mcpCore(() => getEquityData('equity_price_quote', { symbol: ticker }), QUOTE_TIMEOUT_MS),
+          () =>
+            mcpCore(
+              () => getEquityData('equity_price_quote', { symbol: ticker }),
+              QUOTE_TIMEOUT_MS,
+            ),
           QUOTE_HEDGE_MS,
         ).then(
-          (raw) => ({ data: parseMaybeJson(raw), error: null as string | null }),
+          (raw) => ({
+            data: parseMaybeJson(raw),
+            error: null as string | null,
+          }),
           (err: unknown) => ({
             data: null,
             error: err instanceof Error ? err.message : String(err),
@@ -495,24 +595,31 @@ export async function POST(request: Request) {
           ? withTimeout(weeklyChange(spot), SPOT_TIMEOUT_MS).catch(() => null)
           : Promise.resolve(null),
         spot
-          ? withTimeout(fetchSpotTicker(spot), SPOT_TIMEOUT_MS).catch(() => null)
+          ? withTimeout(fetchSpotTicker(spot), SPOT_TIMEOUT_MS).catch(
+              () => null,
+            )
           : Promise.resolve(null),
-        wantExtras
-          ? softExtras(ticker)
-          : Promise.resolve([] as ExtraResult[]),
+        wantExtras ? softExtras(ticker) : Promise.resolve([] as ExtraResult[]),
       ]);
       const last = num(tk?.lastPr);
       const open = num(tk?.open);
       const underlying = slimQuote(quote.data);
       const underlyingLast = underlying?.last_price ?? null;
       const premiumPct =
-        last !== null && underlyingLast ? (last / underlyingLast - 1) * 100 : null;
+        last !== null && underlyingLast
+          ? (last / underlyingLast - 1) * 100
+          : null;
       return {
         kind: 'stock',
         symbol: ticker,
         spotSymbol: spot ?? null,
         spotTicker: tk
-          ? { lastPr: tk.lastPr, open: tk.open, high24h: tk.high24h, low24h: tk.low24h }
+          ? {
+              lastPr: tk.lastPr,
+              open: tk.open,
+              high24h: tk.high24h,
+              low24h: tk.low24h,
+            }
           : null,
         computed: {
           change24hPct: last !== null && open ? (last / open - 1) * 100 : null,
@@ -530,30 +637,40 @@ export async function POST(request: Request) {
       };
     });
     const cryptoPromises = coins.map((base) =>
-      withTimeout(getCryptoEvidence(base), SPOT_TIMEOUT_MS * 2).catch((err: unknown) => ({
-        kind: 'crypto',
-        asset: base,
-        symbol: `${base}USDT`,
-        data: null,
-        week: null,
-        error: err instanceof Error ? err.message : String(err),
-      })),
+      withTimeout(getCryptoEvidence(base), SPOT_TIMEOUT_MS * 2).catch(
+        (err: unknown) => ({
+          kind: 'crypto',
+          asset: base,
+          symbol: `${base}USDT`,
+          data: null,
+          week: null,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      ),
     );
     const historyTargets = [
       ...stocks.map((name) => ({ name, symbol: spotSymbolByTicker.get(name) })),
-      ...coins.map((name) => ({ name, symbol: `${name}USDT` as string | undefined })),
-    ].filter((target): target is { name: string; symbol: string } => Boolean(target.symbol));
-    const [stockEvidence, cryptoEvidence, marketMood, histories] = await Promise.all([
-      Promise.all(stockPromises),
-      Promise.all(cryptoPromises),
-      stocks.length || coins.length ? loadMarketMood() : Promise.resolve(null),
-      Promise.all(
-        historyTargets.map(async (target) => ({
-          name: target.name,
-          closes: await loadCloses(target.symbol),
-        })),
-      ),
-    ]);
+      ...coins.map((name) => ({
+        name,
+        symbol: `${name}USDT` as string | undefined,
+      })),
+    ].filter((target): target is { name: string; symbol: string } =>
+      Boolean(target.symbol),
+    );
+    const [stockEvidence, cryptoEvidence, marketMood, histories] =
+      await Promise.all([
+        Promise.all(stockPromises),
+        Promise.all(cryptoPromises),
+        stocks.length || coins.length
+          ? loadMarketMood()
+          : Promise.resolve(null),
+        Promise.all(
+          historyTargets.map(async (target) => ({
+            name: target.name,
+            closes: await loadCloses(target.symbol),
+          })),
+        ),
+      ]);
     timings.evidenceMs = Date.now() - tEvidence;
 
     const allEvidence = [...stockEvidence, ...cryptoEvidence];
@@ -561,18 +678,35 @@ export async function POST(request: Request) {
     const failed = allEvidence.filter((item) => item.error);
     const mcpError: string | null = failed.length
       ? failed
-          .map((item) => `${'asset' in item ? item.asset : item.symbol}: ${item.error}`)
+          .map(
+            (item) =>
+              `${'asset' in item ? item.asset : item.symbol}: ${item.error}`,
+          )
           .join('; ')
       : null;
 
     // Precomputed gaps, so the model never does the arithmetic or the ranking itself.
-    type Pctable = { week?: { changePct?: number } | null; computed?: { change24hPct?: number | null } };
+    type Pctable = {
+      week?: { changePct?: number } | null;
+      computed?: { change24hPct?: number | null };
+    };
     const round2 = (value: number) => Math.round(value * 100) / 100;
     const named = [
-      ...stockEvidence.map((item) => ({ name: item.symbol, item: item as Pctable })),
-      ...cryptoEvidence.map((item) => ({ name: item.asset, item: item as unknown as Pctable })),
+      ...stockEvidence.map((item) => ({
+        name: item.symbol,
+        item: item as Pctable,
+      })),
+      ...cryptoEvidence.map((item) => ({
+        name: item.asset,
+        item: item as unknown as Pctable,
+      })),
     ];
-    const gap = (aName: string, a: number | null | undefined, bName: string, b: number | null | undefined) =>
+    const gap = (
+      aName: string,
+      a: number | null | undefined,
+      bName: string,
+      b: number | null | undefined,
+    ) =>
       typeof a === 'number' && typeof b === 'number'
         ? {
             [aName]: round2(a),
@@ -588,23 +722,46 @@ export async function POST(request: Request) {
         const b = named[j];
         comparisons.push({
           pair: `${a.name} vs ${b.name}`,
-          week7d: gap(a.name, a.item.week?.changePct, b.name, b.item.week?.changePct),
-          change24h: gap(a.name, a.item.computed?.change24hPct, b.name, b.item.computed?.change24hPct),
+          week7d: gap(
+            a.name,
+            a.item.week?.changePct,
+            b.name,
+            b.item.week?.changePct,
+          ),
+          change24h: gap(
+            a.name,
+            a.item.computed?.change24hPct,
+            b.name,
+            b.item.computed?.change24hPct,
+          ),
         });
       }
     }
 
     // Historical distribution from up to 90 daily candles, computed here and not by the model.
     const weeklyByName = new Map<string, Map<string, number>>();
-    for (const item of histories) if (item.closes) weeklyByName.set(item.name, rollingWeek(item.closes));
+    for (const item of histories)
+      if (item.closes) weeklyByName.set(item.name, rollingWeek(item.closes));
     const historyAssets: Record<string, unknown> = {};
-    for (const [name, weekly] of weeklyByName) historyAssets[name] = assetHistory(weekly);
+    for (const [name, weekly] of weeklyByName)
+      historyAssets[name] = assetHistory(weekly);
     const historyPairs: Array<Record<string, unknown>> = [];
     const historyNames = [...weeklyByName.keys()];
     for (let i = 0; i < historyNames.length; i++) {
-      for (let j = i + 1; j < historyNames.length && historyPairs.length < 12; j++) {
-        const stats = pairHistory(weeklyByName.get(historyNames[i])!, weeklyByName.get(historyNames[j])!);
-        if (stats) historyPairs.push({ pair: `${historyNames[i]} vs ${historyNames[j]}`, ...stats });
+      for (
+        let j = i + 1;
+        j < historyNames.length && historyPairs.length < 12;
+        j++
+      ) {
+        const stats = pairHistory(
+          weeklyByName.get(historyNames[i])!,
+          weeklyByName.get(historyNames[j])!,
+        );
+        if (stats)
+          historyPairs.push({
+            pair: `${historyNames[i]} vs ${historyNames[j]}`,
+            ...stats,
+          });
       }
     }
     const history = weeklyByName.size
@@ -622,15 +779,18 @@ export async function POST(request: Request) {
       if (item.underlyingQuote) sources.add('mcp:equity_price_quote');
       if (item.spotTicker) sources.add('rest:spot_ticker');
       if (item.week) sources.add('rest:spot_candles_1day');
-      for (const extra of item.research) if (extra.data) sources.add(`mcp:${extra.entry}`);
+      for (const extra of item.research)
+        if (extra.data) sources.add(`mcp:${extra.entry}`);
     }
     for (const item of cryptoEvidence) {
       if (item.data) sources.add('rest:spot_ticker');
       if (item.week) sources.add('rest:spot_candles_1day');
     }
     if (history) sources.add('rest:spot_candles_90d');
-    if (marketMood?.usMarketFearGreed) sources.add('mcp:sentiment_market_fear_greed');
-    if (marketMood?.cryptoFearGreed) sources.add('mcp:crypto_sentiment_crypto_fear_greed');
+    if (marketMood?.usMarketFearGreed)
+      sources.add('mcp:sentiment_market_fear_greed');
+    if (marketMood?.cryptoFearGreed)
+      sources.add('mcp:crypto_sentiment_crypto_fear_greed');
     const sourceList = [...sources];
 
     const systemPrompt = `You are Uncle, a market research assistant for a Bitget Reality Thesis Desk. You help a human trader stress test an idea. You never decide for them.
@@ -696,7 +856,8 @@ ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
     if (!base || !key) {
       return NextResponse.json(
         {
-          error: 'Qwen is not configured on the server (QWEN_BASE_URL / QWEN_API_KEY).',
+          error:
+            'Qwen is not configured on the server (QWEN_BASE_URL / QWEN_API_KEY).',
           provenance,
           rawEvidence: mcpEvidence,
           debug,
@@ -750,7 +911,13 @@ ${mcpError ? `Evidence error: ${mcpError}` : ''}`;
     ].join(' ');
     const locked = lockAnswer(
       answer,
-      [mcpEvidence, comparisons, history, marketMood, thesisContext?.block ?? null],
+      [
+        mcpEvidence,
+        comparisons,
+        history,
+        marketMood,
+        thesisContext?.block ?? null,
+      ],
       traderText,
     );
     const lockedProvenance = {

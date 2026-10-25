@@ -113,7 +113,9 @@ export function SmartWalletShelf(_props: { research?: string }) {
                 </div>
                 <div>
                   <dt>Not checked yet</dt>
-                  <dd>{state.coverage.unverifiedCount.toLocaleString('en-US')}</dd>
+                  <dd>
+                    {state.coverage.unverifiedCount.toLocaleString('en-US')}
+                  </dd>
                 </div>
                 <div>
                   <dt>Coverage</dt>

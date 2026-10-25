@@ -33,11 +33,15 @@ export function evidenceNumbers(evidence: unknown): number[] {
   const found: number[] = [];
   const visit = (value: unknown, depth: number) => {
     if (depth > 12 || found.length > 50_000) return;
-    if (typeof value === 'number' && Number.isFinite(value)) found.push(Math.abs(value));
+    if (typeof value === 'number' && Number.isFinite(value))
+      found.push(Math.abs(value));
     else if (typeof value === 'string')
-      for (const token of value.replace(/(\d),(?=\d{3}\b)/g, '$1').match(/\d+(?:\.\d+)?/g) ?? [])
+      for (const token of value
+        .replace(/(\d),(?=\d{3}\b)/g, '$1')
+        .match(/\d+(?:\.\d+)?/g) ?? [])
         found.push(Number(token));
-    else if (Array.isArray(value)) for (const item of value) visit(item, depth + 1);
+    else if (Array.isArray(value))
+      for (const item of value) visit(item, depth + 1);
     else if (value && typeof value === 'object')
       for (const item of Object.values(value)) visit(item, depth + 1);
   };
@@ -54,7 +58,10 @@ const COUNT_UNIT =
 
 function maskNonClaims(text: string): string {
   return text
-    .replace(/\b\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?Z?)?/g, (m) => ' '.repeat(m.length))
+    .replace(
+      /\b\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?Z?)?/g,
+      (m) => ' '.repeat(m.length),
+    )
     .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, (m) => ' '.repeat(m.length))
     .replace(/\b\d+\s+in\s+\d+\b/gi, (m) => ' '.repeat(m.length));
 }
@@ -86,7 +93,9 @@ function extractFigures(text: string, allowed: Set<number>): Figure[] {
     if (!isMarket && decimals === 0 && value < 100) continue;
     // A figure the person typed in their own question is theirs, not a claim.
     if (allowed.has(Number(clean))) continue;
-    const multiplier = magnitude ? (MULTIPLIER[magnitude.toLowerCase()] ?? 1) : 1;
+    const multiplier = magnitude
+      ? (MULTIPLIER[magnitude.toLowerCase()] ?? 1)
+      : 1;
     figures.push({
       raw: raw.trim(),
       start,
@@ -123,7 +132,10 @@ export function lockAnswer(
 ): LockResult {
   const numbers = evidenceNumbers(evidence);
   const fromQuestion = new Set(
-    (userQuestion.replace(/(\d),(?=\d{3}\b)/g, '$1').match(/\d+(?:\.\d+)?/g) ?? []).map(Number),
+    (
+      userQuestion.replace(/(\d),(?=\d{3}\b)/g, '$1').match(/\d+(?:\.\d+)?/g) ??
+      []
+    ).map(Number),
   );
   const figures = extractFigures(answer, fromQuestion);
   const withheldFigures = figures.filter((f) => !supported(f, numbers));
@@ -132,11 +144,11 @@ export function lockAnswer(
 
   const refused =
     checked > 0 &&
-    (numbers.length === 0 || (checked >= 3 && withheldFigures.length / checked >= 0.5));
+    (numbers.length === 0 ||
+      (checked >= 3 && withheldFigures.length / checked >= 0.5));
   if (refused)
     return {
-      text:
-        'Source Lock refused this answer: most of its figures could not be matched to the Bitget evidence it was written from. Ask again, or read the prices on the Observatorium.',
+      text: 'Source Lock refused this answer: most of its figures could not be matched to the Bitget evidence it was written from. Ask again, or read the prices on the Observatorium.',
       refused: true,
       checked,
       verified,

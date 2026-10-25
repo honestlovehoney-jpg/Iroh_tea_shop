@@ -30,7 +30,10 @@ function parseRequest(body: unknown): DecisionRequest | null {
   const raw = body as Record<string, unknown>;
   if (raw.action === 'accept') return { action: 'accept' };
   if (raw.action === 'reject')
-    return { action: 'reject', reason: typeof raw.reason === 'string' ? raw.reason : '' };
+    return {
+      action: 'reject',
+      reason: typeof raw.reason === 'string' ? raw.reason : '',
+    };
   if (raw.action === 'modify') {
     const source =
       typeof raw.edits === 'object' && raw.edits !== null
@@ -53,7 +56,10 @@ export async function PATCH(request: Request, { params }: Ctx) {
   const thesis = await loadOwned(db, owner, thesisId);
   const path = thesis?.failurePaths.find((p) => p.id === pathId);
   if (!thesis || !path)
-    return Response.json({ error: 'Failure path not found.' }, { status: 404, headers: NO_STORE });
+    return Response.json(
+      { error: 'Failure path not found.' },
+      { status: 404, headers: NO_STORE },
+    );
   if (!pathsEditable(thesis.status as ThesisStatus))
     return Response.json(
       { error: 'The Failure Table is signed off and cannot change.' },
@@ -107,7 +113,10 @@ export async function PATCH(request: Request, { params }: Ctx) {
   });
   const fresh = await loadOwned(db, owner, thesis.id);
   return withOwnerCookie(
-    Response.json({ thesis: fresh ? thesisView(fresh) : null }, { headers: NO_STORE }),
+    Response.json(
+      { thesis: fresh ? thesisView(fresh) : null },
+      { headers: NO_STORE },
+    ),
     owner,
   );
 }
@@ -121,7 +130,10 @@ export async function DELETE(request: Request, { params }: Ctx) {
   const thesis = await loadOwned(db, owner, thesisId);
   const path = thesis?.failurePaths.find((p) => p.id === pathId);
   if (!thesis || !path)
-    return Response.json({ error: 'Failure path not found.' }, { status: 404, headers: NO_STORE });
+    return Response.json(
+      { error: 'Failure path not found.' },
+      { status: 404, headers: NO_STORE },
+    );
   if (!pathsEditable(thesis.status as ThesisStatus))
     return Response.json(
       { error: 'The Failure Table is signed off and cannot change.' },
@@ -129,13 +141,18 @@ export async function DELETE(request: Request, { params }: Ctx) {
     );
   if (path.source !== 'user')
     return Response.json(
-      { error: "Uncle's paths cannot be deleted. Reject the path and say why." },
+      {
+        error: "Uncle's paths cannot be deleted. Reject the path and say why.",
+      },
       { status: 409, headers: NO_STORE },
     );
   await db.failurePath.delete({ where: { id: path.id } });
   const fresh = await loadOwned(db, owner, thesis.id);
   return withOwnerCookie(
-    Response.json({ thesis: fresh ? thesisView(fresh) : null }, { headers: NO_STORE }),
+    Response.json(
+      { thesis: fresh ? thesisView(fresh) : null },
+      { headers: NO_STORE },
+    ),
     owner,
   );
 }

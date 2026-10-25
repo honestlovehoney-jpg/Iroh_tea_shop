@@ -30,7 +30,9 @@ export function createFakeDb() {
         .map((p) => ({ ...p }));
     }
     if (include?.claims)
-      out.claims = claims.filter((c) => c.thesisId === thesis.id).map((c) => ({ ...c }));
+      out.claims = claims
+        .filter((c) => c.thesisId === thesis.id)
+        .map((c) => ({ ...c }));
     if (include?.lock) {
       const found = locks.find((x) => x.thesisId === thesis.id);
       out.lock = found ? { ...found } : null;
@@ -44,7 +46,15 @@ export function createFakeDb() {
 
   return {
     __reset() {
-      theses.length = paths.length = claims.length = seals.length = locks.length = portfolios.length = assets.length = observations.length = 0;
+      theses.length =
+        paths.length =
+        claims.length =
+        seals.length =
+        locks.length =
+        portfolios.length =
+        assets.length =
+        observations.length =
+          0;
       seq = 0;
     },
     __addAsset(row: Row) {
@@ -81,7 +91,8 @@ export function createFakeDb() {
           .filter((t) => matches(t, where))
           .sort((a, b) => b.createdAt - a.createdAt || (b.id > a.id ? 1 : -1))
           .map((t) => withPaths(t, include)),
-      count: async ({ where }: Row) => theses.filter((t) => matches(t, where)).length,
+      count: async ({ where }: Row) =>
+        theses.filter((t) => matches(t, where)).length,
       create: async ({ data, include }: Row) => {
         const row = {
           id: nextId('t'),
@@ -165,7 +176,8 @@ export function createFakeDb() {
     },
     lock: {
       create: async ({ data }: Row) => {
-        if (locks.some((x) => x.thesisId === data.thesisId)) throw new Error('unique');
+        if (locks.some((x) => x.thesisId === data.thesisId))
+          throw new Error('unique');
         const row = { id: nextId('l'), overrideReason: null, ...data };
         locks.push(row);
         return { ...row };
@@ -173,7 +185,8 @@ export function createFakeDb() {
     },
     seal: {
       create: async ({ data }: Row) => {
-        if (seals.some((x) => x.thesisId === data.thesisId)) throw new Error('unique');
+        if (seals.some((x) => x.thesisId === data.thesisId))
+          throw new Error('unique');
         const row = {
           id: nextId('s'),
           status: 'open',

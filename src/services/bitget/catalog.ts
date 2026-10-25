@@ -46,9 +46,10 @@ export async function syncBitgetCatalog(now = new Date()): Promise<{
       continue;
     }
     const previous = bySymbol.get(asset.symbol);
-    bySymbol.set(asset.symbol, previous
-      ? { ...asset, firstSeenAt: previous.firstSeenAt }
-      : asset);
+    bySymbol.set(
+      asset.symbol,
+      previous ? { ...asset, firstSeenAt: previous.firstSeenAt } : asset,
+    );
   }
 
   // Sequential upserts avoid SQLite write bursts and make a failed sync resumable.

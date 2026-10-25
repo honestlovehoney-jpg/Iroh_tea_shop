@@ -13,21 +13,32 @@ interface InstrumentSearchProps {
   onInstrumentSelect: (instrument: Instrument) => void;
 }
 
-export default function InstrumentSearch({ onInstrumentSelect }: InstrumentSearchProps) {
+export default function InstrumentSearch({
+  onInstrumentSelect,
+}: InstrumentSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Instrument[]>([]);
   const [loading, setLoading] = useState(false);
 
   const handleSearch = async (searchQuery: string) => {
     setQuery(searchQuery);
-    if (!searchQuery.trim()) { setResults([]); return; }
+    if (!searchQuery.trim()) {
+      setResults([]);
+      return;
+    }
     setLoading(true);
     try {
-      const response = await fetch(`/api/bitget/assets/search?q=${encodeURIComponent(searchQuery)}`);
+      const response = await fetch(
+        `/api/bitget/assets/search?q=${encodeURIComponent(searchQuery)}`,
+      );
       const data = await response.json();
       setResults(data.results || []);
-    } catch (error) { console.error('Search failed:', error); setResults([]); } 
-    finally { setLoading(false); }
+    } catch (error) {
+      console.error('Search failed:', error);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -56,10 +67,16 @@ export default function InstrumentSearch({ onInstrumentSelect }: InstrumentSearc
               className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-0 flex justify-between items-center group"
             >
               <div>
-                <span className="font-bold text-slate-900 group-hover:text-blue-600">{instrument.symbol}</span>
-                <span className="ml-2 text-sm text-slate-500">{instrument.companyName}</span>
+                <span className="font-bold text-slate-900 group-hover:text-blue-600">
+                  {instrument.symbol}
+                </span>
+                <span className="ml-2 text-sm text-slate-500">
+                  {instrument.companyName}
+                </span>
               </div>
-              <span className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-md">{instrument.productType}</span>
+              <span className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-md">
+                {instrument.productType}
+              </span>
             </button>
           ))}
         </div>

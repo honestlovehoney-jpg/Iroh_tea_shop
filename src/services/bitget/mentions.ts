@@ -55,7 +55,9 @@ export function findMentions(
     if (!ticker) continue;
     const mention = { ticker, companyName: entry.companyName };
     if (!byTicker.has(ticker)) byTicker.set(ticker, mention);
-    const normalized = entry.companyName ? normalizeName(entry.companyName) : '';
+    const normalized = entry.companyName
+      ? normalizeName(entry.companyName)
+      : '';
     if (normalized.length >= 4) {
       byName.set(normalized, mention);
       const first = normalized.split(' ')[0];

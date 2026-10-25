@@ -1,19 +1,40 @@
 import { describe, expect, it } from 'vitest';
-import { PATH_STOPS, canOpenStop, pathProgress, pathSummary } from '../src/thesis/path';
+import {
+  PATH_STOPS,
+  canOpenStop,
+  pathProgress,
+  pathSummary,
+} from '../src/thesis/path';
 
 describe('pathProgress', () => {
   it('starts at the Failure Table once the thesis exists', () => {
     const view = pathProgress('draft');
-    expect(view.stops.map((s) => s.state)).toEqual(['done', 'current', 'ahead', 'ahead', 'ahead']);
+    expect(view.stops.map((s) => s.state)).toEqual([
+      'done',
+      'current',
+      'ahead',
+      'ahead',
+      'ahead',
+    ]);
     expect(view.completed).toBe(1);
     expect(view.served).toBe(false);
     expect(view.stops[3].blockedBy).toBe('Finish the Evidence Shelf first.');
   });
 
   it('moves one stop at a time as the status advances', () => {
-    expect(pathProgress('failures_resolved').stops.map((s) => s.state)).toEqual(['done', 'done', 'current', 'ahead', 'ahead']);
-    expect(pathProgress('evidence_reviewed').stops.map((s) => s.state)).toEqual(['done', 'done', 'done', 'current', 'ahead']);
-    expect(pathProgress('sealed').stops.map((s) => s.state)).toEqual(['done', 'done', 'done', 'done', 'current']);
+    expect(pathProgress('failures_resolved').stops.map((s) => s.state)).toEqual(
+      ['done', 'done', 'current', 'ahead', 'ahead'],
+    );
+    expect(pathProgress('evidence_reviewed').stops.map((s) => s.state)).toEqual(
+      ['done', 'done', 'done', 'current', 'ahead'],
+    );
+    expect(pathProgress('sealed').stops.map((s) => s.state)).toEqual([
+      'done',
+      'done',
+      'done',
+      'done',
+      'current',
+    ]);
   });
 
   it('finishes every stop when served', () => {
@@ -25,8 +46,15 @@ describe('pathProgress', () => {
   });
 
   it('has exactly one current stop until served', () => {
-    for (const status of ['draft', 'failures_resolved', 'evidence_reviewed', 'sealed'] as const)
-      expect(pathProgress(status).stops.filter((s) => s.state === 'current')).toHaveLength(1);
+    for (const status of [
+      'draft',
+      'failures_resolved',
+      'evidence_reviewed',
+      'sealed',
+    ] as const)
+      expect(
+        pathProgress(status).stops.filter((s) => s.state === 'current'),
+      ).toHaveLength(1);
   });
 });
 

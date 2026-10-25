@@ -38,7 +38,11 @@ export const THESES: Thesis[] = [
       { symbol: 'TSLA', name: 'Tesla, Inc.', assetClass: 'stock' },
       { symbol: 'META', name: 'Meta Platforms, Inc.', assetClass: 'stock' },
       { symbol: 'NFLX', name: 'Netflix, Inc.', assetClass: 'stock' },
-      { symbol: 'COST', name: 'Costco Wholesale Corporation', assetClass: 'stock' },
+      {
+        symbol: 'COST',
+        name: 'Costco Wholesale Corporation',
+        assetClass: 'stock',
+      },
     ],
   },
   {

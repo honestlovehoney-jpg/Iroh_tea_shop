@@ -26,7 +26,8 @@ export function buildSourceRef(input: {
   fetchedAt: Date;
 }): SourceRef {
   const observed = input.observedAt ? new Date(input.observedAt) : null;
-  const observedValid = observed !== null && Number.isFinite(observed.getTime());
+  const observedValid =
+    observed !== null && Number.isFinite(observed.getTime());
   return {
     label: input.label,
     instrumentId: input.instrumentId,
@@ -36,7 +37,8 @@ export function buildSourceRef(input: {
     fetchedAt: input.fetchedAt.toISOString(),
     // A price whose time is unknown is judged by the fetch time alone.
     marketClosed:
-      !usMarketOpen(input.fetchedAt) || (observedValid ? !usMarketOpen(observed) : false),
+      !usMarketOpen(input.fetchedAt) ||
+      (observedValid ? !usMarketOpen(observed) : false),
   };
 }
 
@@ -62,9 +64,15 @@ export function describeFigure(kind: FigureKind, ref: SourceRef): FigureNote {
   const n = ref.candles;
   switch (kind) {
     case 'close':
-      return { state: 'observed', how: 'The latest daily close Bitget returned.' };
+      return {
+        state: 'observed',
+        how: 'The latest daily close Bitget returned.',
+      };
     case 'candle':
-      return { state: 'observed', how: 'A daily candle value exactly as Bitget returned it.' };
+      return {
+        state: 'observed',
+        how: 'A daily candle value exactly as Bitget returned it.',
+      };
     case 'candle_move':
       return {
         state: 'computed',
@@ -76,7 +84,10 @@ export function describeFigure(kind: FigureKind, ref: SourceRef): FigureNote {
         how: `Computed by this app: the highest high and lowest low among the ${n ?? 'listed'} daily candles.`,
       };
     case 'quote':
-      return { state: 'observed', how: 'Read from the Bitget MCP equity quote.' };
+      return {
+        state: 'observed',
+        how: 'Read from the Bitget MCP equity quote.',
+      };
     case 'day_change':
       return {
         state: 'computed',
@@ -101,7 +112,10 @@ export function describeFigure(kind: FigureKind, ref: SourceRef): FigureNote {
 }
 
 /** One reference for a figure built from several stocks: the newest observation, and closed if any input was. */
-export function combineRefs(refs: SourceRef[], label: string): SourceRef | null {
+export function combineRefs(
+  refs: SourceRef[],
+  label: string,
+): SourceRef | null {
   if (refs.length === 0) return null;
   const newest = (key: 'observedAt' | 'fetchedAt') =>
     refs

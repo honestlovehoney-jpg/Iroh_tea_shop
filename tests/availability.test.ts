@@ -11,7 +11,10 @@ const withEnv = (key: string | undefined, base: string | undefined) => {
 
 describe('getResearchAvailability', () => {
   it('is configured only when both the key and the base URL are set', () => {
-    const before = { key: process.env.QWEN_API_KEY, base: process.env.QWEN_BASE_URL };
+    const before = {
+      key: process.env.QWEN_API_KEY,
+      base: process.env.QWEN_BASE_URL,
+    };
     expect(withEnv('k', 'https://example.test/v1')).toBe('configured');
     expect(withEnv('k', undefined)).toBe('unavailable');
     expect(withEnv(undefined, 'https://example.test/v1')).toBe('unavailable');

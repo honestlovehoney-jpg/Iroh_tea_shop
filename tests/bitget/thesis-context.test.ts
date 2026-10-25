@@ -25,7 +25,9 @@ describe('thesis context for Uncle', () => {
   });
 
   it('builds a block from the server copy of the thesis and its momentum', async () => {
-    const ctx = await loadThesisContext('bullrun', async () => snapshot('strong'));
+    const ctx = await loadThesisContext('bullrun', async () =>
+      snapshot('strong'),
+    );
     expect(ctx?.thesis.tickers.map((t) => t.symbol)).toContain('TSLA');
     expect(ctx?.block).toContain('Growth & Consumer');
     expect(ctx?.block).toContain('strong, 3 of 4 stocks rose');
@@ -42,7 +44,9 @@ describe('thesis context for Uncle', () => {
   });
 
   it('treats an unknown reading as unavailable', async () => {
-    const ctx = await loadThesisContext('bullrun', async () => snapshot('unknown'));
+    const ctx = await loadThesisContext('bullrun', async () =>
+      snapshot('unknown'),
+    );
     expect(ctx?.block).toContain('not available right now');
   });
 });

@@ -41,7 +41,7 @@ export async function searchBitgetAssets(input: {
       companyName: row.companyName,
       productType: 'reality_stock',
       listingStatus: row.listingStatus,
-      tradingPeriod: safeJson(row.tradingPeriodJson || ""),
+      tradingPeriod: safeJson(row.tradingPeriodJson || ''),
       weekendTradable: row.weekendTradable,
       lastVerifiedAt: row.lastVerifiedAt || new Date().toISOString(),
     })),
@@ -49,5 +49,9 @@ export async function searchBitgetAssets(input: {
 }
 
 function safeJson(value: string): unknown {
-  try { return JSON.parse(value) as unknown; } catch { return null; }
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
 }
