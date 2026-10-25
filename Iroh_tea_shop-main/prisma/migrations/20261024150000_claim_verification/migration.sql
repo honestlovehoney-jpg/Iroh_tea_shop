@@ -1,0 +1,2 @@
+ALTER TABLE "Claim" ADD COLUMN "verifiedAt" DATETIME;
+ALTER TABLE "Claim" ADD COLUMN "excerpt" TEXT;
