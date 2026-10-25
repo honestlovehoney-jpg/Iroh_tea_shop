@@ -44,7 +44,7 @@ interface Props {
 type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 async function api<T>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   url: string,
   body?: unknown,
 ): Promise<ApiResult<T>> {
